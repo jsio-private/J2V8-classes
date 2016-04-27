@@ -14,17 +14,48 @@
 }(this, function () {
 
   var classMap = {};
+  var instanceMap = {};
+
+  var handleIncommingGet = function(res) {
+    // print('handleIncommingGet', Object.keys(res));
+    if (!res) {
+      return undefined;
+    }
+    res = res.v || res;
+
+    if (res.__javaInstance !== undefined) {
+      print('handleIncommingGet: class instance');
+      var existingInstance = instanceMap[res.__javaInstance];
+      if (existingInstance) {
+        print('handleIncommingGet: already exists');
+        return existingInstance;
+      }
+      // make the instance
+      var clz = getClass(res.__javaClass);
+      var inst = new clz('EXISTING_INSTANCE', res);
+      return inst;
+    }
+
+    return res;
+  };
+
 
   var addMethod = function(inst, name, method) {
-    inst[name] = method;
+    print('adding method: ', name);
+    inst[name] = function() {
+      return handleIncommingGet(method.apply(this, arguments));
+    };
   };
 
   var addField = function(inst, name, get, set) {
+    print('adding field: ', name);
     Object.defineProperty(inst, name, {
       enumerable: true,
+      // writable: false,
+      // configurable: true,
       get: function() {
-        var v = get();
-        return v.v;
+        print('getting: ', name);
+        return handleIncommingGet(get());
       },
       // get: get,
       set: set
@@ -40,14 +71,12 @@
     // Add all the js -> java methods
     var methods = javaData.methods;
     for (var k in methods) {
-      print('adding method: ', k);
       addMethod(instance, k, methods[k]);
     }
 
     // Add getters and setters for the fields
     var fields = javaData.fields;
     for (var k in fields) {
-      print('adding field: ', k);
       addField(instance, k, fields[k].get, fields[k].set);
     }
 
@@ -60,6 +89,7 @@
     if (existing) {
       return existing;
     }
+    print('getting class data for: ', className);
     var classInfo = JavaGetClass(className);
 
     if (!classInfo.found) {
@@ -68,11 +98,25 @@
 
     var classConstructor = {
       create: function() {
-        print('creating instance: ', className);
-        var instData = JavaCreateInstance(className);
+        var instData;
+        if (arguments[0] === 'EXISTING_INSTANCE') {
+          print('adopting java instance: ', className);
+          instData = arguments[1];
+        } else {
+          print('creating new instance: ', className);
+          var args = Array.prototype.slice.call(arguments);
+          args.unshift(className);
+          instData = JavaCreateInstance.apply(this, args);
+        }
 
         this.__javaInstance = instData.__javaInstance;
-        print('(inst hash: ' + this.__javaInstance + ')');
+        this.__javaClass = instData.__javaClass;
+        print('(inst: ' + this.__javaClass + ' : ' + this.__javaInstance + ')');
+
+        if (instanceMap[this.__javaInstance]){
+          print('WARNING: instanceMap collision');
+        }
+        instanceMap[this.__javaInstance] = this;
 
         addProxies(this, instData);
       }

@@ -5,6 +5,11 @@ package io.js.J2V8Classes;
  */
 public class StaticAnimals {
     public static int SomeNumber = 123;
-//    public Animal cat = new Animal("cat");
 
+    public static String SomeFunc(String s) {
+        return s + "!";
+    }
+
+    public static Animal cat = new Animal("cat");
+    public static Animal dog = new Animal("dog");
 }
