@@ -1,6 +1,3 @@
-[submodule "src/main/resources/classjs"]
-	path = src/main/resources/classjs
-	url = https://github.com/divio/classjs
 [submodule "src/main/resources/abitbol"]
 	path = src/main/resources/abitbol
 	url = https://github.com/wanadev/abitbol
