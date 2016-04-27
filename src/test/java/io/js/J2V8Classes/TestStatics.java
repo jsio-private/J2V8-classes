@@ -14,7 +14,7 @@ public class TestStatics {
         runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testStatics.js"));
 
         // Check field
-        Assert.assertEquals(123, runtime.executeIntScript("StaticAnimals.SomeNumber"));
+        Assert.assertEquals(123, runtime.executeIntegerScript("StaticAnimals.SomeNumber"));
         // Check method
         Assert.assertEquals("asdf!", runtime.executeStringScript("StaticAnimals.SomeFunc('asdf')"));
         // Check instances

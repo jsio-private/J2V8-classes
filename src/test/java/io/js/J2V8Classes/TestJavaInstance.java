@@ -13,6 +13,9 @@ public class TestJavaInstance {
         V8 runtime = Runtime.getRuntime();
         runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testCustomInstance.js"));
 
+        // Check default constructor
+        Assert.assertEquals("unknown", runtime.executeStringScript("boringAnimal.type"));
+
         // Check constructor + read
         Assert.assertEquals("fish", runtime.executeStringScript("originalType"));
         // Check read

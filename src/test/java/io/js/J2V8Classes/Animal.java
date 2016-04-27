@@ -7,7 +7,7 @@ public class Animal {
     public String type;
 
     public Animal() {
-        this("unknown animal type");
+        this("unknown");
     }
 
     public Animal(String type) {

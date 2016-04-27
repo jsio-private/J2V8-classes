@@ -14,11 +14,12 @@ public class Runtime {
 
     public static V8 getRuntime() {
         V8 runtime = V8.createV8Runtime();
+//        logger.setLevel(Level.WARNING);
 
         runtime.executeVoidScript(
                 Utils.getScriptSource(
                         Runtime.class.getClassLoader(),
-                        "js.class/dist/js.class.js"
+                        "abitbol/dist/abitbol.js"
                 )
         );
 
@@ -31,7 +32,7 @@ public class Runtime {
 
 
         JavaVoidCallback print = new JavaVoidCallback() {
-            public void invoke(final V8Array parameters) {
+            public void invoke(final V8Object receiver, final V8Array parameters) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("JS: ");
                 for (int i = 0; i < parameters.length(); i++) {
@@ -48,34 +49,25 @@ public class Runtime {
 
 
         JavaCallback getClass = new JavaCallback() {
-            public Object invoke(final V8Array parameters) {
+            public Object invoke(final V8Object receiver, final V8Array parameters) {
                 String className = (String) parameters.get(0);
                 logger.info("Getting class: " + className);
-                V8Object res = new V8Object(runtime);
                 try {
-                    V8Object statics = getClassStatics(runtime, className);
-                    res.add("statics", statics);
-                    statics.release();
-                    res.add("found", true);
+                    return getClassInfo(runtime, className);
                 } catch (ClassNotFoundException e) {
                     logger.warning("> Class not found");
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
-//                catch (InstantiationException e) {
-//                    e.printStackTrace();
-//                } catch (InvocationTargetException e) {
-//                    e.printStackTrace();
-//                }
 
-                return res;
+                return null;
             }
         };
         runtime.registerJavaMethod(getClass, "JavaGetClass");
 
 
         JavaCallback createInstance = new JavaCallback() {
-            public V8Object invoke(final V8Array parameters) {
+            public V8Object invoke(final V8Object receiver, final V8Array parameters) {
                 String className = (String) parameters.get(0);
                 try {
                     return createInstance(runtime, className, Utils.v8arrayToObjectArray(parameters, 1));
@@ -99,11 +91,23 @@ public class Runtime {
     }
 
 
-    private static V8Object getClassStatics(V8 runtime, String className) throws ClassNotFoundException, IllegalAccessException {
-        logger.info("Getting class statics: " + className);
+    private static V8Object getClassInfo(V8 runtime, String className) throws ClassNotFoundException, IllegalAccessException {
+        logger.info("Getting class info: " + className);
         Class clz = Class.forName(className);
 
-        V8Object res = generateAllGetSet(runtime, clz, clz, true);
+        V8Object res = new V8Object(runtime);
+        V8Object statics = generateAllGetSet(runtime, clz, clz, true);
+        res.add("statics", statics);
+        statics.release();
+        V8Object publics = generateAllGetSet(runtime, clz, clz, false);
+        res.add("publics", publics);
+        publics.release();
+        res.add("__javaClass", clz.getCanonicalName());
+
+        Class superClz = clz.getSuperclass();
+        if (superClz != Object.class) {
+            res.add("__javaSuperclass", clz.getSuperclass().getCanonicalName());
+        }
 
         return res;
     }
@@ -117,7 +121,6 @@ public class Runtime {
             parameterTypes[i] = parameters[i].getClass();
         }
         Constructor c = clz.getConstructor(parameterTypes);
-//        Object[] passed = {parameters};
         Object instance = c.newInstance(parameters);
 
         return getV8ObjectForObject(runtime, instance);
@@ -126,14 +129,15 @@ public class Runtime {
     private static V8Object generateAllGetSet(V8 runtime, Class clz, Object instance, boolean statics) {
         V8Object res = new V8Object(runtime);
 
-        logger.info("Generating getters and setters for: " + clz.getName());
+        logger.info("Generating getters and setters for: " + clz.getName() + "(" + instance.hashCode() + ", " + statics + ")");
+
 
         logger.info("> Getting fields");
         Field[] f = clz.getDeclaredFields();
         V8Object jsF = new V8Object(runtime);
         for (int i = 0; i < f.length; i++) {
             if (Modifier.isStatic(f[i].getModifiers()) == statics) {
-                generateGetSet(runtime, jsF, instance, f[i]);
+                generateGetSet(runtime, jsF, f[i]);
             }
         }
         res.add("fields", jsF);
@@ -144,40 +148,59 @@ public class Runtime {
         V8Object jsM = new V8Object(runtime);
         for (int i = 0; i < m.length; i++) {
             if (Modifier.isStatic(m[i].getModifiers()) == statics) {
-                generateMethod(runtime, jsM, instance, m[i]);
+                generateMethod(runtime, jsM, m[i]);
             }
         }
         res.add("methods", jsM);
         jsM.release();
 
+        if (!statics) {
+            Class superClz = clz.getSuperclass();
+            if (superClz != Object.class) {
+                logger.info("> Adding super object for: " + superClz.getName());
+                V8Object superData = generateAllGetSet(runtime, superClz, instance, false);
+                superData.add("__javaClass", superClz.getCanonicalName());
+                res.add("superData", superData);
+                superData.release();
+            }
+        }
+
         return res;
     }
 
-    private static void generateMethod(V8 runtime, V8Object parent, Object instance, Method m) {
+    private static void generateMethod(V8 runtime, V8Object parent, Method m) {
         String mName = m.getName();
         logger.info(">> M: " + mName);
-        if (Modifier.isStatic(m.getModifiers())) {
-            JavaCallback staticMethod = new JavaCallback() {
-                public V8Object invoke(final V8Array parameters) {
-                    try {
-                        Object v = m.invoke(instance, Utils.v8arrayToObjectArray(parameters));
-                        return getReturnValue(runtime, v);
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    } catch (InvocationTargetException e) {
-                        e.printStackTrace();
+        JavaCallback staticMethod = new JavaCallback() {
+            public V8Object invoke(final V8Object receiver, final V8Array parameters) {
+                try {
+                    Object fromRecv = getReceiverFromCallback(receiver);
+                    if (fromRecv == null) {
+                        logger.warning("Callback with no bound java receiver!");
+                        return new V8Object(runtime);
                     }
-                    return new V8Object(runtime);
+                    Object v = m.invoke(fromRecv, Utils.v8arrayToObjectArray(parameters));
+                    return getReturnValue(runtime, v);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (InvocationTargetException e) {
+                    e.printStackTrace();
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
                 }
-            };
-            parent.registerJavaMethod(staticMethod, mName);
-        } else {
-            parent.registerJavaMethod(instance, mName, mName, m.getParameterTypes());
-        }
+                return new V8Object(runtime);
+            }
+        };
+        parent.registerJavaMethod(staticMethod, mName);
     }
 
     private static V8Object getReturnValue(V8 runtime, Object v) {
         V8Object res = new V8Object(runtime);
+        if (v == null) {
+            res.addNull("v");
+            return res;
+        }
+
         Class vClass = v.getClass();
         if (vClass == Boolean.class) {
             res.add("v", (boolean) v);
@@ -198,7 +221,28 @@ public class Runtime {
         return res;
     }
 
-    private static void generateGetSet(V8 runtime, V8Object parent, Object instance, Field f) {
+    public static Object getReceiverFromCallback(V8Object receiver) throws ClassNotFoundException {
+        if (!receiver.contains("__javaInstance")) {
+            if (!receiver.contains("__javaClass")) {
+                logger.warning("Callback with no bound java receiver!");
+                return null;
+            }
+            return Class.forName(receiver.getString("__javaClass"));
+        }
+        return getInstance(receiver.getInteger("__javaInstance"));
+    }
+
+    private static V8Object getFromField(V8 runtime, V8Object receiver, Field f) throws IllegalAccessException, ClassNotFoundException {
+        Object fromRecv = getReceiverFromCallback(receiver);
+        if (fromRecv == null) {
+            logger.warning("Could not find receiving Object for callback!");
+            return new V8Object(runtime);
+        }
+        Object v = f.get(fromRecv);
+        return getReturnValue(runtime, v);
+    }
+
+    private static void generateGetSet(V8 runtime, V8Object parent, Field f) {
         String fName = f.getName();
         logger.info(">> F: " + fName);
 
@@ -206,11 +250,14 @@ public class Runtime {
 //        final V8Value undef = runtime.getUndefined();
 
         JavaCallback getter = new JavaCallback() {
-            public V8Object invoke(final V8Array parameters) {
+            public V8Object invoke(final V8Object receiver, final V8Array parameters) {
                 try {
-                    Object v = f.get(instance);
-                    return getReturnValue(runtime, v);
+                    return getFromField(runtime, receiver, f);
                 } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (V8ResultUndefined e) {
+                    e.printStackTrace();
+                } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                 }
                 return new V8Object(runtime);
@@ -219,14 +266,24 @@ public class Runtime {
         fCallbacks.registerJavaMethod(getter, "get");
 
         JavaVoidCallback setter = new JavaVoidCallback() {
-            public void invoke(final V8Array parameters) {
-                Object v = (Object) parameters.get(0);
-                if (v.getClass() == V8Object.class) {
-                    return;
-                }
+            public void invoke(final V8Object receiver, final V8Array parameters) {
                 try {
-                    f.set(instance, v);
+                    Object fromRecv = getReceiverFromCallback(receiver);
+
+                    if (fromRecv == null) {
+                        logger.warning("Could not find receiving Object for callback!");
+                        return;
+                    }
+
+                    Object v = (Object) parameters.get(0);
+                    if (v.getClass() == V8Object.class) {
+                        return;
+                    }
+
+                    f.set(fromRecv, v);
                 } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                 }
             }
@@ -244,9 +301,15 @@ public class Runtime {
             return (V8Object) jsInstanceMap.get(hash);
         }
 
-        V8Object res = generateAllGetSet(runtime, o.getClass(), o, false);
-        res.add("__javaClass", o.getClass().getCanonicalName());
-        res.add("__javaInstance", registerInstance(o));
+        Class clz = o.getClass();
+        V8Object res = new V8Object(runtime);
+//        V8Object res = generateAllGetSet(runtime, clz, o, false);
+        res.add("__javaInstance", hash);
+        res.add("__javaClass", clz.getCanonicalName());
+
+        registerInstance(o);
+        jsInstanceMap.put(hash, res);
+
         return res;
     }
 

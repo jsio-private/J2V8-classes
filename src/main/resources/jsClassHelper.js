@@ -17,14 +17,19 @@
   var instanceMap = {};
 
   var handleIncommingGet = function(res) {
-    // print('handleIncommingGet', Object.keys(res));
+    // print('handleIncommingGet: ', Object.keys(res));
     if (!res) {
       return undefined;
     }
-    res = res.v || res;
+    if (res.hasOwnProperty('v')) {
+      res = res.v;
+    }
+    if (!res) {
+      return null;
+    }
 
     if (res.__javaInstance !== undefined) {
-      print('handleIncommingGet: class instance');
+      print('handleIncommingGet: class instance: (', res.__javaClass, ':', res.__javaInstance, ')');
       var existingInstance = instanceMap[res.__javaInstance];
       if (existingInstance) {
         print('handleIncommingGet: already exists');
@@ -43,41 +48,58 @@
   var addMethod = function(inst, name, method) {
     print('adding method: ', name);
     inst[name] = function() {
+      // print('running method: ', name, ' ', Object.keys(this));
       return handleIncommingGet(method.apply(this, arguments));
     };
   };
 
-  var addField = function(inst, name, get, set) {
-    print('adding field: ', name);
-    Object.defineProperty(inst, name, {
-      enumerable: true,
-      // writable: false,
-      // configurable: true,
-      get: function() {
-        print('getting: ', name);
-        return handleIncommingGet(get());
-      },
-      // get: get,
-      set: set
-    });
+  var addField = function(inst, name, get, set, useObjProp) {
+    print('adding field: ', name, ' useObjProp=', useObjProp);
+    if (useObjProp) {
+      Object.defineProperty(inst, name, {
+        enumerable: true,
+        get: function() {
+          print('getting(op): ', name, ' (', this.__javaInstance, ')');
+          return handleIncommingGet(get.call(this));
+        },
+        // get: get,
+        set: function(v) {
+          print('setting(op): ', name, ' (', this.__javaInstance, ')');
+          set.call(this);
+        }
+      });
+    } else {
+      inst['get' + name] = function() {
+        // print('getting: ', name, ' (', this.__javaInstance, ')');
+        return handleIncommingGet(get.call(this));
+      };
+      inst['set' + name]  = function(v) {
+        // print('setting: ', name, ' (', this.__javaInstance, ')');
+        set.call(this, v);
+      };
+    }
   };
 
 
-  var addProxies = function(instance, javaData) {
+  var addProxies = function(instance, javaData, useObjProp) {
     if (!javaData) {
       return instance;
     }
 
     // Add all the js -> java methods
     var methods = javaData.methods;
-    for (var k in methods) {
-      addMethod(instance, k, methods[k]);
+    if (methods) {
+      for (var k in methods) {
+        addMethod(instance, k, methods[k]);
+      }
     }
 
     // Add getters and setters for the fields
     var fields = javaData.fields;
-    for (var k in fields) {
-      addField(instance, k, fields[k].get, fields[k].set);
+    if (fields) {
+      for (var k in fields) {
+        addField(instance, k, fields[k].get, fields[k].set, useObjProp);
+      }
     }
 
     return instance;
@@ -92,12 +114,13 @@
     print('getting class data for: ', className);
     var classInfo = JavaGetClass(className);
 
-    if (!classInfo.found) {
+    if (!classInfo) {
+      print('WARNING: Class not found: ', className);
       return null;
     }
 
     var classConstructor = {
-      create: function() {
+      __init__: function() {
         var instData;
         if (arguments[0] === 'EXISTING_INSTANCE') {
           print('adopting java instance: ', className);
@@ -109,22 +132,74 @@
           instData = JavaCreateInstance.apply(this, args);
         }
 
-        this.__javaInstance = instData.__javaInstance;
-        this.__javaClass = instData.__javaClass;
-        print('(inst: ' + this.__javaClass + ' : ' + this.__javaInstance + ')');
-
-        if (instanceMap[this.__javaInstance]){
-          print('WARNING: instanceMap collision');
+        if (!instData.__javaInstance) {
+          print('WARNING: No instData.__javaInstance');
+        } else {
+          this.__javaInstance = instData.__javaInstance;
+          print('(inst: ' + className + ' : ' + this.__javaInstance + ')');
         }
-        instanceMap[this.__javaInstance] = this;
 
-        addProxies(this, instData);
+        // if (instData.superData) {
+        //   print('(', className, ' extends ', instData.superData.__javaClass, ')');
+        //   print('superData= ', JSON.stringify(instData.superData));
+        //   print(instData.superData.__javaClass, ' =?=', this.$class.__javaSuperclass);
+        //   if (this.$super) {
+        //     print('Running super constructor');
+        //     this.$super('EXISTING_INSTANCE', instData);
+        //   } else {
+        //     print('WARNING: superData available, but no $super');
+        //   }
+        // }
+        if (this.$super) {
+          print('Running super constructor');
+          this.$super('EXISTING_INSTANCE', {__javaInstance: instData.__javaInstance});
+        }
+
+
+
+        var existing = instanceMap[this.__javaInstance];
+        if (instanceMap[this.__javaInstance]) {
+          // TODO: this is fired for super classes
+          print('WARNING: instanceMap collision. Instance already in map: ' + existing.$class.__javaClass + ':' + existing.__javaInstance);
+        } else {
+          instanceMap[this.__javaInstance] = this;
+        }
+
+        // addProxies(this, instData);
       }
     };
 
-    var clz = JSClass(classConstructor);
-    clz.static(addProxies({}, classInfo.statics));
+    var superClz = null;
+    var superClzName = classInfo.__javaSuperclass;
+    if (superClzName && superClzName !== 'java.lang.Object') {
+      print('Loading super (', className, ' extends ', superClzName, ')');
+      superClz = getClass(superClzName);
+    }
 
+    if (classInfo.publics) {
+      print('Adding publics: ', JSON.stringify(classInfo.publics));
+      addProxies(classConstructor, classInfo.publics);
+    }
+
+    if (classInfo.statics) {
+      print('Adding statics: ', JSON.stringify(classInfo.statics));
+      classConstructor.__classvars__ = addProxies({
+        __javaClass: classInfo.__javaClass
+      }, classInfo.statics, true);
+    }
+
+    var clz;
+    if (superClz) {
+      clz = superClz.$extend(classConstructor);
+    } else {
+      clz = Class.$extend(classConstructor);
+    }
+    // clz.static(addProxies({}, classInfo.statics));
+
+    clz.__javaClass = classInfo.__javaClass;
+    clz.__javaSuperclass = classInfo.__javaSuperclass;
+
+    print('Class info load complete: ', className);
     classMap[className] = clz;
     return clz;
   };

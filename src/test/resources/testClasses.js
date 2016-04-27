@@ -1,5 +1,5 @@
-var Person = JSClass({
-    create: function(name) {
+var Person = Class.$extend({
+    __init__: function(name) {
         this.name = name;
     }
 });
@@ -8,7 +8,7 @@ var Person = JSClass({
 var person = new Person('joe');
 
 
-var Jackie = Person.extend({
+var Jackie = Person.$extend({
     isAwesome: function() {
         return true;
     }
