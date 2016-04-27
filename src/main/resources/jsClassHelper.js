@@ -13,8 +13,12 @@
    }
 }(this, function () {
 
+  var _FROM_JAVA = '__EXISTING_INSTANCE';
+  var _IS_SUPER = '__IS_SUPER';
+
   var classMap = {};
   var instanceMap = {};
+
 
   var handleIncommingGet = function(res) {
     // print('handleIncommingGet: ', Object.keys(res));
@@ -37,7 +41,7 @@
       }
       // make the instance
       var clz = getClass(res.__javaClass);
-      var inst = new clz('EXISTING_INSTANCE', res);
+      var inst = new clz(_FROM_JAVA, res);
       return inst;
     }
 
@@ -65,7 +69,7 @@
         // get: get,
         set: function(v) {
           print('setting(op): ', name, ' (', this.__javaInstance, ')');
-          set.call(this);
+          set.call(this, v);
         }
       });
     } else {
@@ -105,7 +109,6 @@
     return instance;
   };
 
-
   var getClass = function(className) {
     var existing = classMap[className];
     if (existing) {
@@ -122,7 +125,8 @@
     var classConstructor = {
       __init__: function() {
         var instData;
-        if (arguments[0] === 'EXISTING_INSTANCE') {
+        var isSuper = arguments[0] === _IS_SUPER;
+        if (isSuper || arguments[0] === _FROM_JAVA) {
           print('adopting java instance: ', className);
           instData = arguments[1];
         } else {
@@ -152,13 +156,13 @@
         // }
         if (this.$super) {
           print('Running super constructor');
-          this.$super('EXISTING_INSTANCE', {__javaInstance: instData.__javaInstance});
+          this.$super(_IS_SUPER, {__javaInstance: instData.__javaInstance});
         }
 
 
 
         var existing = instanceMap[this.__javaInstance];
-        if (instanceMap[this.__javaInstance]) {
+        if (instanceMap[this.__javaInstance] && !isSuper) {
           // TODO: this is fired for super classes
           print('WARNING: instanceMap collision. Instance already in map: ' + existing.$class.__javaClass + ':' + existing.__javaInstance);
         } else {
@@ -194,7 +198,6 @@
     } else {
       clz = Class.$extend(classConstructor);
     }
-    // clz.static(addProxies({}, classInfo.statics));
 
     clz.__javaClass = classInfo.__javaClass;
     clz.__javaSuperclass = classInfo.__javaSuperclass;
@@ -204,15 +207,8 @@
     return clz;
   };
 
-  // var JavaClass = JSClass({
-  //   create: function() {
-  //     var inst = JavaCreateInstance();
-  //   }
-  // });
-
   return {
-    getClass: getClass,
-    // JavaClass: JavaClass
+    getClass: getClass
   };
 
 }));

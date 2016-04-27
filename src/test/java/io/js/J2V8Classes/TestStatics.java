@@ -19,7 +19,13 @@ public class TestStatics {
         Assert.assertEquals("asdf!", runtime.executeStringScript("StaticAnimals.SomeFunc('asdf')"));
         // Check instances
         Assert.assertEquals("cat", runtime.executeStringScript("StaticAnimals.cat.getType()"));
-        Assert.assertEquals("dog", runtime.executeStringScript("StaticAnimals.dog.getType()"));
+        Assert.assertEquals("dog", runtime.executeStringScript("StaticAnimals.dog.type"));
+
+        // Test setting a static value
+        int n = 789;
+        runtime.executeVoidScript("StaticAnimals.SomeNumber = " + n + ";");
+        Assert.assertEquals(n, runtime.executeIntegerScript("StaticAnimals.SomeNumber"));
+        Assert.assertEquals(n, StaticAnimals.SomeNumber);
 
         runtime.release();
     }
