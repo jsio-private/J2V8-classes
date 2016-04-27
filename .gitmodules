@@ -1,0 +1,6 @@
+[submodule "src/main/resources/classjs"]
+	path = src/main/resources/classjs
+	url = https://github.com/divio/classjs
+[submodule "src/main/resources/js.class"]
+	path = src/main/resources/js.class
+	url = https://github.com/dkraczkowski/js.class
