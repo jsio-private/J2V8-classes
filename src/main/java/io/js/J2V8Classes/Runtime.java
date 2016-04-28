@@ -3,7 +3,9 @@ package io.js.J2V8Classes;
 import com.eclipsesource.v8.*;
 
 import java.lang.reflect.*;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -213,7 +215,7 @@ public class Runtime {
                     }
                     Object[] args = Utils.v8arrayToObjectArray(parameters);
                     logger.info("Method: " + m.getName());
-                    logger.info("Args: " + Arrays.toString(args));
+//                    logger.info("Args: " + Arrays.toString(args));
 
                     Class[] argTypes = Utils.getArrayClasses(args);
                     logger.info("Arg types: " + Arrays.toString(argTypes));
@@ -236,7 +238,21 @@ public class Runtime {
 
                         boolean match = true;
                         for (int j = 0; j < paramTypes.length; j++) {
-                            if (!paramTypes[j].isAssignableFrom(argTypes[j])) {
+                            if (paramTypes[j].isArray() && argTypes[j].isArray()) {
+                                Object[] arr = (Object[]) args[j];
+                                args[j] = Arrays.copyOf(arr, arr.length, paramTypes[j]); // cast the Object[] array to whatever the Java method wants
+                                match = true;
+                                break;
+                            } else if (paramTypes[j].isAssignableFrom(ArrayList.class) && argTypes[j].isArray()) {
+                                ArrayList list = new ArrayList();
+                                Object[] arr = (Object[]) args[j];
+                                for(int k = 0; k < arr.length; k++){
+                                    list.add(arr[k]);
+                                }
+                                args[j] = list;
+                                match = true;
+                                break;
+                            } else if (!paramTypes[j].isAssignableFrom(argTypes[j])) {
                                 match = false;
                                 break;
                             }

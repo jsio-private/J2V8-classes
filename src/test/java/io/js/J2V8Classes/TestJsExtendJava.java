@@ -26,6 +26,7 @@ public class TestJsExtendJava {
         Animal bear = StaticAnimals.animals.get(0);
         Assert.assertNotEquals(null, bear);
         Assert.assertEquals(true, bear instanceof Animal);
+        Assert.assertEquals("bear", bear.getType());
 
         Runtime.release(runtime);
     }

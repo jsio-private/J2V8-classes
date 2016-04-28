@@ -7,6 +7,7 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -53,6 +54,14 @@ public class Utils {
                     } else {
                         res[idx] = inst;
                     }
+                } else if (v8o instanceof V8Array){
+                    V8Array v8Array = (V8Array) v8o;
+                    Object arr = Array.newInstance(Object.class, v8Array.length());
+                    for(int k = 0; k < v8Array.length(); k++){
+                        Array.set(arr, k, v8Array.get(k));
+                    }
+                    res[idx] = arr;
+                    logger.info("converted V8 array to Java: "+v8o);
                 }
                 v8o.release();
             }
