@@ -23,6 +23,6 @@ public class TestJavaInstance {
         // Check function call
         Assert.assertEquals("zebra", runtime.executeStringScript("myAnimal.getType()"));
 
-        runtime.release();
+        Runtime.release(runtime);
     }
 }

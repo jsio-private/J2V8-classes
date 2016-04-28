@@ -16,6 +16,7 @@
   var _FROM_JAVA = '__EXISTING_INSTANCE';
   var _IS_SUPER = '__IS_SUPER';
   var _INTERNAL_EXTEND = '__INTERNAL_EXTEND';
+  var _CLASS_INITIALIZING = '__CLASS_INITIALIZING';
 
   var classMap = {};
   var instanceMap = {};
@@ -33,12 +34,24 @@
       return null;
     }
 
-    if (res.__javaInstance !== undefined) {
+    // Check for arrays
+    // if (res.__javaClass.lastIndexOf('[]') == res.__javaClass.length - 2) {
+    // }
+    if (Array.isArray(res)) {
+      print('handleIncommingGet: array, ensuring values are backed by classes if needed ', res.length);
+      for (var i = 0, j = res.length; i < j; i++) {
+        res[i] = handleIncommingGet(res[i]);
+      }
+    }
+    else if (res.__javaInstance !== undefined) {
       print('handleIncommingGet: class instance: (', res.__javaClass, ':', res.__javaInstance, ')');
       var existingInstance = instanceMap[res.__javaInstance];
       if (existingInstance) {
         print('handleIncommingGet: already exists');
         return existingInstance;
+      }
+      if (isInitializing(res.__javaClass)) {
+        return null;
       }
       // make the instance
       var clz = getClass(res.__javaClass);
@@ -51,25 +64,32 @@
 
 
   var addMethod = function(inst, name, method) {
-    print('adding method: ', name);
+    print('adding method: ', name, typeof method, method);
     inst[name] = function() {
-      print('running method: ', name, ' ', Object.keys(this));
-      return handleIncommingGet(method.apply(this, arguments));
+      print('running method: ', name);
+      // print('> keys: ', Object.keys(this));
+      var javaRes = method.apply(this, arguments);
+      return handleIncommingGet(javaRes);
     };
   };
 
   var addField = function(inst, name, get, set) {
     print('adding field: ', name);
+    if (!get || !set) {
+      print('WARNING: fields must have both a getter and a setter');
+      return;
+    }
+
     Object.defineProperty(inst, name, {
       enumerable: true,
       // configurable: true,
       get: function() {
-        print('getting(op): ', name, ' (', this.__javaInstance, ')');
+        print('getting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
         return handleIncommingGet(get.call(this));
       },
       // get: get,
       set: function(v) {
-        print('setting(op): ', name, ' (', this.__javaInstance, ')');
+        print('setting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
         set.call(this, v);
       }
     });
@@ -93,9 +113,21 @@
 
     // Add getters and setters for the fields
     var fields = javaData.fields;
+    var _GET_PREFIX = '__get_';
+    var _SET_PREFIX = '__set_';
     if (fields && opts.fields !== false) {
       for (var k in fields) {
-        addField(instance, k, fields[k].get, fields[k].set);
+        if (k.indexOf(_GET_PREFIX) !== 0) {
+          continue;
+        }
+
+        var strippedK = k.substring(_GET_PREFIX.length);
+        addField(
+          instance,
+          strippedK,
+          fields[k],
+          fields[_SET_PREFIX + strippedK]
+        );
       }
     }
 
@@ -170,30 +202,60 @@
     }
 
     print('addJavaFields: from ', fromClass, ' to ', this.__javaInstance);
-    var classInfo = JavaGetClass(fromClass);
+    var classInfo = getClassInfo(fromClass);
     var superClass = classInfo.__javaSuperclass;
     if (superClass) {
       addJavaFields.call(this, superClass);
     }
 
+    print('addJavaFields: Adding proxies for ', fromClass);
+    // print('TEST: ', Object.keys(classInfo));
     addProxies(this, classInfo.publics, { methods: false });
   };
 
 
+  var isInitializing = function(className) {
+    return classMap[className] === _CLASS_INITIALIZING;
+  };
   var isDynamicClass = function(className) {
     return className.indexOf(_DYNAMIC_PACKAGE) === 0;
   };
 
 
-  var getClass = function(className) {
-    var existing = classMap[className];
+  var _classInfoCache = {};
+
+  var getClassInfo = function(className) {
+    var existing = _classInfoCache[className];
     if (existing) {
       return existing;
     }
-    print('getting class data for: ', className);
-    var classInfo = JavaGetClass(className);
 
-    if (!classInfo) {
+    // Make the classInfo js side, so that it isnt released
+    var classInfo = getBlankClassInfo();
+    JavaGetClass(className, classInfo);
+    _classInfoCache[className] = classInfo;
+    return classInfo;
+  };
+
+
+  var getClass = function(className) {
+    if (!className) {
+      throw new Error('Must provide className to getClass');
+    }
+
+    var existing = classMap[className];
+    if (existing) {
+      if (isInitializing(className)) {
+        print('WARNING: Calling getClass() from inside getClass() stack (class is already initializing)');
+        return null;
+      }
+      return existing;
+    }
+    classMap[className] = _CLASS_INITIALIZING;
+    print('getting class data for: ', className);
+    var classInfo = getClassInfo(className);
+
+    if (!classInfo.__javaClass) {
       print('WARNING: Class not found: ', className);
       return null;
     }
@@ -390,8 +452,24 @@
   var _MAX_CUSTOM_CLASS_COUNT = 1000;
   var _classUid = 0;
 
+
+  var getBlankClassInfo = function() {
+    return {
+      publics: {
+        fields: {},
+        methods: {}
+      },
+      statics: {
+        fields: {},
+        methods: {}
+      }
+    };
+  };
+
+
   return {
-    getClass: getClass
+    getClass: getClass,
+    getBlankClassInfo: getBlankClassInfo
   };
 
 }));

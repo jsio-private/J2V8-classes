@@ -83,20 +83,28 @@ public class Utils {
 
     public static V8Object getV8ObjectForObject(V8 runtime, Object o) {
         int hash = o.hashCode();
+        logger.info("Finding V8Object for: " + hash);
         if (jsInstanceMap.containsKey(hash)) {
-            return (V8Object) jsInstanceMap.get(hash);
+            V8Object jsInst = (V8Object) jsInstanceMap.get(hash);
+            if (!jsInst.isReleased()) {
+                return jsInst.twin();
+            }
+            logger.warning("Trying to return a released instance!");
         }
 
         Class clz = o.getClass();
+        String clzName = getClassName(clz);
+        logger.info("> None found, registering new: " + clzName);
+
         V8Object res = new V8Object(runtime);
 //        V8Object res = generateAllGetSet(runtime, clz, o, false);
         res.add("__javaInstance", hash);
-        res.add("__javaClass", clz.getCanonicalName());
+        res.add("__javaClass", clzName);
 
         registerInstance(o);
         jsInstanceMap.put(hash, res);
 
-        return res;
+        return res.twin();
     }
 
     public static Object getInstance(int hash) {
@@ -114,5 +122,21 @@ public class Utils {
         }
         javaInstanceMap.put(hash, o);
         return hash;
+    }
+
+    public static String getClassName(Class clz) {
+        String canonicalName = clz.getCanonicalName();
+        if (canonicalName != null) {
+            return canonicalName;
+        }
+        return clz.getName();
+    }
+
+    public static Class[] getArrayClasses(Object[] arr) {
+        Class[] classes = new Class[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            classes[i] = arr[i].getClass();
+        }
+        return classes;
     }
 }

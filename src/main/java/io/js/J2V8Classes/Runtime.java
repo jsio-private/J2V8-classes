@@ -3,6 +3,7 @@ package io.js.J2V8Classes;
 import com.eclipsesource.v8.*;
 
 import java.lang.reflect.*;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 /**
@@ -49,19 +50,17 @@ public class Runtime {
         runtime.registerJavaMethod(print, "print");
 
 
-        JavaCallback getClass = new JavaCallback() {
-            public Object invoke(final V8Object receiver, final V8Array parameters) {
-                String className = (String) parameters.get(0);
+        JavaVoidCallback getClass = new JavaVoidCallback() {
+            public void invoke(final V8Object receiver, final V8Array parameters) {
+                String className = parameters.getString(0);
                 logger.info("Getting class: " + className);
                 try {
-                    return getClassInfo(runtime, className);
+                    getClassInfo(className, parameters.getObject(1));
                 } catch (ClassNotFoundException e) {
                     logger.warning("> Class not found");
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 }
-
-                return null;
             }
         };
         runtime.registerJavaMethod(getClass, "JavaGetClass");
@@ -127,86 +126,83 @@ public class Runtime {
     }
 
 
-    private static V8Object getClassInfo(V8 runtime, String className) throws ClassNotFoundException, IllegalAccessException {
+    private static void getClassInfo(String className, V8Object classInfo) throws ClassNotFoundException, IllegalAccessException {
         logger.info("Getting class info: " + className);
         Class clz = Class.forName(className);
 
-        V8Object res = new V8Object(runtime);
-        V8Object statics = generateAllGetSet(runtime, clz, clz, true);
-        res.add("statics", statics);
-        statics.release();
-        V8Object publics = generateAllGetSet(runtime, clz, clz, false);
-        res.add("publics", publics);
-        publics.release();
-        res.add("__javaClass", clz.getCanonicalName());
+        generateAllGetSet(classInfo.getObject("statics"), clz, clz, true);
+        generateAllGetSet(classInfo.getObject("publics"), clz, clz, false);
+        String clzName = Utils.getClassName(clz);
+        classInfo.add("__javaClass", clzName);
 
         Class superClz = clz.getSuperclass();
         if (superClz != Object.class) {
-            res.add("__javaSuperclass", clz.getSuperclass().getCanonicalName());
+            classInfo.add("__javaSuperclass", Utils.getClassName(clz.getSuperclass()));
         }
-
-        return res;
     }
 
 
     private static V8Object createInstance(V8 runtime, String className, Object[] parameters) throws ClassNotFoundException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
         logger.info("Getting class instance: " + className);
         Class clz = Class.forName(className);
-        Class[] parameterTypes = new Class[parameters.length];
-        for (int i = 0; i < parameters.length; i++) {
-            parameterTypes[i] = parameters[i].getClass();
-        }
+        Class[] parameterTypes = Utils.getArrayClasses(parameters);
+
+        // TODO: support for nested classes? http://stackoverflow.com/a/17485341
+        logger.info("> Getting constructor for: " + Arrays.toString(parameterTypes));
         Constructor c = clz.getConstructor(parameterTypes);
+
         Object instance = c.newInstance(parameters);
 
         return Utils.getV8ObjectForObject(runtime, instance);
     }
 
-    private static V8Object generateAllGetSet(V8 runtime, Class clz, Object instance, boolean statics) {
-        V8Object res = new V8Object(runtime);
+    private static void generateAllGetSet(V8Object parent, Class clz, Object instance, boolean statics) {
+        V8 runtime = parent.getRuntime();
 
         logger.info("Generating getters and setters for: " + clz.getName() + "(" + instance.hashCode() + ", " + statics + ")");
 
-
         logger.info("> Getting fields");
         Field[] f = clz.getDeclaredFields();
-        V8Object jsF = new V8Object(runtime);
+        V8Object jsF = parent.getObject("fields");
         for (int i = 0; i < f.length; i++) {
             if (Modifier.isStatic(f[i].getModifiers()) == statics) {
-                generateGetSet(runtime, jsF, f[i]);
+                generateGetSet(jsF, f[i]);
             }
         }
-        res.add("fields", jsF);
-        jsF.release();
 
         logger.info("> Getting methods");
         Method[] m = clz.getDeclaredMethods();
-        V8Object jsM = new V8Object(runtime);
+        V8Object jsM = parent.getObject("methods");
         for (int i = 0; i < m.length; i++) {
             if (Modifier.isStatic(m[i].getModifiers()) == statics) {
-                generateMethod(runtime, jsM, m[i]);
+                generateMethod(jsM, m[i]);
             }
         }
-        res.add("methods", jsM);
-        jsM.release();
 
         if (!statics) {
             Class superClz = clz.getSuperclass();
             if (superClz != Object.class) {
                 logger.info("> Adding super object for: " + superClz.getName());
-                V8Object superData = generateAllGetSet(runtime, superClz, instance, false);
+                V8Object superData = runtime.executeObjectScript("ClassHelpers.getBlankClassInfo()");
                 superData.add("__javaClass", superClz.getCanonicalName());
-                res.add("superData", superData);
-                superData.release();
+                generateAllGetSet(superData.getObject("publics"), superClz, instance, false);
+                parent.add("superData", superData);
             }
         }
-
-        return res;
     }
 
-    private static void generateMethod(V8 runtime, V8Object parent, Method m) {
+    private static void generateMethod(V8Object parent, Method m) {
+        V8 runtime = parent.getRuntime();
+
         String mName = m.getName();
         logger.info(">> M: " + mName);
+
+        int mods = m.getModifiers();
+        if (Modifier.isPrivate(mods)) {
+            logger.info(">>> Skipping private");
+            return;
+        }
+
         JavaCallback staticMethod = new JavaCallback() {
             public V8Object invoke(final V8Object receiver, final V8Array parameters) {
                 try {
@@ -216,9 +212,48 @@ public class Runtime {
                         return new V8Object(runtime);
                     }
                     Object[] args = Utils.v8arrayToObjectArray(parameters);
-//                    logger.info("Method: " + m.getName());
-//                    logger.info("Args: " + Arrays.toString(args));
-                    Object v = m.invoke(fromRecv, args);
+                    logger.info("Method: " + m.getName());
+                    logger.info("Args: " + Arrays.toString(args));
+
+                    Class[] argTypes = Utils.getArrayClasses(args);
+                    logger.info("Arg types: " + Arrays.toString(argTypes));
+
+                    Method inferredMethod = null;
+//                    Method inferredMethod = fromRecv.getClass().getDeclaredMethod(mName, argTypes);
+                    Class fromRecvClz = fromRecv instanceof Class ? (Class) fromRecv : fromRecv.getClass();
+                    Method[] ms = fromRecvClz.getMethods();
+                    logger.info("Finding method... " + Utils.getClassName(fromRecvClz) + " " + mName + " (total " + ms.length + ")");
+                    for (int i = 0; i < ms.length; i++) {
+                        if (ms[i].getName() != mName) {
+                            continue;
+                        }
+
+                        Class[] paramTypes = ms[i].getParameterTypes();
+                        logger.info("Testing against paramTypes: " + Arrays.toString(paramTypes));
+                        if (paramTypes.length != argTypes.length) {
+                            continue;
+                        }
+
+                        boolean match = true;
+                        for (int j = 0; j < paramTypes.length; j++) {
+                            if (!paramTypes[j].isAssignableFrom(argTypes[j])) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            inferredMethod = ms[i];
+                            break;
+                        }
+                    }
+
+                    if (inferredMethod == null) {
+                        logger.warning("Could not infer method, argument class signature not found");
+                        return new V8Object(runtime);
+                    }
+
+//                    Object v = m.invoke(fromRecv, args);
+                    Object v = inferredMethod.invoke(fromRecv, args);
                     return getReturnValue(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -249,11 +284,19 @@ public class Runtime {
             res.add("v", (int) v);
         } else if (vClass == String.class) {
             res.add("v", (String) v);
-        } else if (vClass instanceof Object) {
-            logger.warning("> Class! " + vClass);
+        } else if (v instanceof Object[]) {
+            logger.info("> Class Array! " + vClass);
+            Object[] oarr = (Object[]) v;
+            V8Array arr = new V8Array(runtime);
+            for (int i = 0; i < oarr.length; i++) {
+                arr.push(getReturnValue(runtime, oarr[i]));
+            }
+            res.add("v", arr);
+            arr.release();
+        } else if (v instanceof Object) {
+            logger.info("> Class! " + vClass);
             V8Object jsInst = Utils.getV8ObjectForObject(runtime, v);
             res.add("v", jsInst);
-            jsInst.release();
         } else {
             logger.warning("> Unknown type! " + vClass);
         }
@@ -281,12 +324,17 @@ public class Runtime {
         return getReturnValue(runtime, v);
     }
 
-    private static void generateGetSet(V8 runtime, V8Object parent, Field f) {
+    private static void generateGetSet(V8Object parent, Field f) {
+        V8 runtime = parent.getRuntime();
+
         String fName = f.getName();
         logger.info(">> F: " + fName);
 
-        V8Object fCallbacks = new V8Object(runtime);
-//        final V8Value undef = runtime.getUndefined();
+        int mods = f.getModifiers();
+        if (Modifier.isPrivate(mods)) {
+            logger.info(">>> Skipping private");
+            return;
+        }
 
         JavaCallback getter = new JavaCallback() {
             public V8Object invoke(final V8Object receiver, final V8Array parameters) {
@@ -302,7 +350,7 @@ public class Runtime {
                 return new V8Object(runtime);
             }
         };
-        fCallbacks.registerJavaMethod(getter, "get");
+        parent.registerJavaMethod(getter, "__get_" + fName);
 
         JavaVoidCallback setter = new JavaVoidCallback() {
             public void invoke(final V8Object receiver, final V8Array parameters) {
@@ -314,7 +362,7 @@ public class Runtime {
                         return;
                     }
 
-                    Object v = (Object) parameters.get(0);
+                    Object v = parameters.get(0);
                     if (v.getClass() == V8Object.class) {
                         return;
                     }
@@ -327,15 +375,13 @@ public class Runtime {
                 }
             }
         };
-        fCallbacks.registerJavaMethod(setter, "set");
-
-        parent.add(fName, fCallbacks);
-        fCallbacks.release();
+        parent.registerJavaMethod(setter, "__set_" + fName);
     }
 
     public static void release(V8 runtime) {
         Utils.releaseAllFor(runtime);
-        runtime.release();
+        // TODO: better release logic... maybe add some cleanup stuff to jsClassHelper
+        runtime.release(false);
     }
 
 }

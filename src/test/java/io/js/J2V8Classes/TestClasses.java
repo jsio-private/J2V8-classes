@@ -17,6 +17,6 @@ public class TestClasses {
         Assert.assertEquals(runtime.executeStringScript("jackie.name"), "jackie");
         Assert.assertEquals(runtime.executeBooleanScript("jackie.isAwesome()"), true);
 
-        runtime.release();
+        Runtime.release(runtime);
     }
 }

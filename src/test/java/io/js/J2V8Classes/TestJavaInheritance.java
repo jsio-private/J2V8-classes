@@ -21,7 +21,6 @@ public class TestJavaInheritance {
         Assert.assertEquals("fishy mcgee", runtime.executeStringScript("myAnimal.name"));
         Assert.assertEquals("fishy mcgee", runtime.executeStringScript("myAnimal.getName()"));
 
-        runtime.release();
-
+        Runtime.release(runtime);
     }
 }

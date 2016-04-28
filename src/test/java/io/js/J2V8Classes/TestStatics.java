@@ -27,6 +27,6 @@ public class TestStatics {
         Assert.assertEquals(n, runtime.executeIntegerScript("StaticAnimals.SomeNumber"));
         Assert.assertEquals(n, StaticAnimals.SomeNumber);
 
-        runtime.release();
+        Runtime.release(runtime);
     }
 }
