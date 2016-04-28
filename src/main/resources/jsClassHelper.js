@@ -15,6 +15,7 @@
 
   var _FROM_JAVA = '__EXISTING_INSTANCE';
   var _IS_SUPER = '__IS_SUPER';
+  var _INTERNAL_EXTEND = '__INTERNAL_EXTEND';
 
   var classMap = {};
   var instanceMap = {};
@@ -52,7 +53,7 @@
   var addMethod = function(inst, name, method) {
     print('adding method: ', name);
     inst[name] = function() {
-      // print('running method: ', name, ' ', Object.keys(this));
+      print('running method: ', name, ' ', Object.keys(this));
       return handleIncommingGet(method.apply(this, arguments));
     };
   };
@@ -108,6 +109,7 @@
 
     return instance;
   };
+
 
   var getClass = function(className) {
     var existing = classMap[className];
@@ -169,6 +171,10 @@
           instanceMap[this.__javaInstance] = this;
         }
 
+
+        this.__javaClass = this.$class.__javaClass;
+        this.__javaSuperclass = this.$class.__javaSuperclass;
+
         // addProxies(this, instData);
       }
     };
@@ -176,7 +182,7 @@
     var superClz = null;
     var superClzName = classInfo.__javaSuperclass;
     if (superClzName && superClzName !== 'java.lang.Object') {
-      print('Loading super (', className, ' extends ', superClzName, ')');
+      print('Getting super (', className, ' extends ', superClzName, ')');
       superClz = getClass(superClzName);
     }
 
@@ -194,7 +200,7 @@
 
     var clz;
     if (superClz) {
-      clz = superClz.$extend(classConstructor);
+      clz = superClz.$extend(_INTERNAL_EXTEND, classConstructor);
     } else {
       clz = Class.$extend(classConstructor);
     }
@@ -204,8 +210,79 @@
 
     print('Class info load complete: ', className);
     classMap[className] = clz;
+
+    Object.defineProperty(clz, "$extend", {
+        enumerable: false,
+        configurable: true,
+        value: function() {
+          print('Custom $extend');
+
+          if (arguments[0] === _INTERNAL_EXTEND) {
+            print('> Internal extend, running normal extend');
+            var args = Array.prototype.slice.call(arguments);
+            args.shift();
+            return Class.$extend.apply(this, args);
+          }
+
+          var superClass = this.__javaClass;
+          if (!superClass) {
+            print('> No superClass, running normal extend');
+            return Class.$extend.apply(this, arguments);
+          }
+
+          if (_classUid >= _MAX_CUSTOM_CLASS_COUNT) {
+            print('WARNING: max custom class count hit, falling back to js class extend');
+            return Class.$extend.apply(this, arguments);
+          }
+
+          var javaClass = _MAIN_PACKAGE + '.Dynamic_' + (_classUid++);
+          print('> parent.__javaClass= ', superClass);
+          print('> new javaClass: ', javaClass);
+
+          var methods = [];
+          var fields = [];
+
+          // var keys = Object.keys(resultClz);
+          // for (var i in keys) {
+          //   var k = keys[i];
+          //   if (k.charAt(0) === '_') {
+          //     continue;
+          //   }
+
+          //   var v = resultClz[k];
+          //   var t = typeof(v);
+          //   if (t === 'function') {
+          //     methods.push({
+          //       type: t,
+          //       name: k
+          //     });
+          //   }
+          // }
+
+          print('> Generating class');
+          JavaGenerateClass(
+            javaClass,
+            superClass,
+            // fields,
+            methods
+          );
+
+          print('> Creating JS class');
+          // var resultClz = Class.$extend.apply(this, arguments);
+          // resultClz.__javaClass = javaClass;
+          // resultClz.__javaSuperclass = superClass;
+          // classMap[javaClass] = clz;
+          // return resultClz;
+          return getClass(javaClass);
+        }
+    });
+
     return clz;
   };
+
+  var _MAIN_PACKAGE = 'io.js.enderScript';
+  var _MAX_CUSTOM_CLASS_COUNT = 1000;
+  var _classUid = 0;
 
   return {
     getClass: getClass

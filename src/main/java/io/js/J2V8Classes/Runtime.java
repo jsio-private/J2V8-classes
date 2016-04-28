@@ -3,7 +3,6 @@ package io.js.J2V8Classes;
 import com.eclipsesource.v8.*;
 
 import java.lang.reflect.*;
-import java.util.HashMap;
 import java.util.logging.Logger;
 
 /**
@@ -14,7 +13,6 @@ public class Runtime {
 
     public static V8 getRuntime() {
         V8 runtime = V8.createV8Runtime();
-//        logger.setLevel(Level.WARNING);
 
         runtime.executeVoidScript(
                 Utils.getScriptSource(
@@ -68,7 +66,7 @@ public class Runtime {
 
         JavaCallback createInstance = new JavaCallback() {
             public V8Object invoke(final V8Object receiver, final V8Array parameters) {
-                String className = (String) parameters.get(0);
+                String className = parameters.getString(0);
                 try {
                     return createInstance(runtime, className, Utils.v8arrayToObjectArray(parameters, 1));
                 } catch (ClassNotFoundException e) {
@@ -86,6 +84,41 @@ public class Runtime {
             }
         };
         runtime.registerJavaMethod(createInstance, "JavaCreateInstance");
+
+
+        JavaCallback generateClass = new JavaCallback() {
+            public V8Object invoke(final V8Object receiver, final V8Array parameters) {
+                String className = parameters.getString(0);
+                String superName = parameters.getString(1);
+                V8Array methods = parameters.getArray(2);
+                logger.info("Generating class: " + className + " extending " + superName + " (method count " + methods.length() + ")");
+
+                ClassGenerator.createClass(runtime, className, superName, methods);
+
+                methods.release();
+
+//                try {
+//                    logger.info("GENERATE CLASS PARAMS " + parameters.length());
+//                    return createInstance(runtime, className, Utils.v8arrayToObjectArray(methods));
+                    return new V8Object(runtime);
+//                }
+//                catch (ClassNotFoundException e) {
+//                    logger.warning("> Class not found");
+//                } catch (IllegalAccessException e) {
+//                    e.printStackTrace();
+//                } catch (InstantiationException e) {
+//                    e.printStackTrace();
+//                } catch (InvocationTargetException e) {
+//                    e.printStackTrace();
+//                } catch (NoSuchMethodException e) {
+//                    e.printStackTrace();
+//                }
+//                return null;
+            }
+        };
+        runtime.registerJavaMethod(generateClass, "JavaGenerateClass");
+
+
 
         return runtime;
     }
@@ -123,7 +156,7 @@ public class Runtime {
         Constructor c = clz.getConstructor(parameterTypes);
         Object instance = c.newInstance(parameters);
 
-        return getV8ObjectForObject(runtime, instance);
+        return Utils.getV8ObjectForObject(runtime, instance);
     }
 
     private static V8Object generateAllGetSet(V8 runtime, Class clz, Object instance, boolean statics) {
@@ -179,7 +212,10 @@ public class Runtime {
                         logger.warning("Callback with no bound java receiver!");
                         return new V8Object(runtime);
                     }
-                    Object v = m.invoke(fromRecv, Utils.v8arrayToObjectArray(parameters));
+                    Object[] args = Utils.v8arrayToObjectArray(parameters);
+//                    logger.info("Method: " + m.getName());
+//                    logger.info("Args: " + Arrays.toString(args));
+                    Object v = m.invoke(fromRecv, args);
                     return getReturnValue(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -212,7 +248,7 @@ public class Runtime {
             res.add("v", (String) v);
         } else if (vClass instanceof Object) {
             logger.warning("> Class! " + vClass);
-            V8Object jsInst = getV8ObjectForObject(runtime, v);
+            V8Object jsInst = Utils.getV8ObjectForObject(runtime, v);
             res.add("v", jsInst);
             jsInst.release();
         } else {
@@ -229,7 +265,7 @@ public class Runtime {
             }
             return Class.forName(receiver.getString("__javaClass"));
         }
-        return getInstance(receiver.getInteger("__javaInstance"));
+        return Utils.getInstance(receiver.getInteger("__javaInstance"));
     }
 
     private static V8Object getFromField(V8 runtime, V8Object receiver, Field f) throws IllegalAccessException, ClassNotFoundException {
@@ -294,45 +330,9 @@ public class Runtime {
         fCallbacks.release();
     }
 
-
-    private static V8Object getV8ObjectForObject(V8 runtime, Object o) {
-        int hash = o.hashCode();
-        if (jsInstanceMap.containsKey(hash)) {
-            return (V8Object) jsInstanceMap.get(hash);
-        }
-
-        Class clz = o.getClass();
-        V8Object res = new V8Object(runtime);
-//        V8Object res = generateAllGetSet(runtime, clz, o, false);
-        res.add("__javaInstance", hash);
-        res.add("__javaClass", clz.getCanonicalName());
-
-        registerInstance(o);
-        jsInstanceMap.put(hash, res);
-
-        return res;
-    }
-
-
-
-    private static HashMap javaInstanceMap = new HashMap<Integer, Object>();
-    private static HashMap jsInstanceMap = new HashMap<Integer, V8Object>();
-
-    private static Object getInstance(int hash) {
-        if (!javaInstanceMap.containsKey(hash)) {
-            logger.warning("Hash missing: " + hash);
-            return null;
-        }
-        return javaInstanceMap.get(hash);
-    }
-
-    private static int registerInstance(Object o) {
-        int hash = o.hashCode();
-        if (javaInstanceMap.containsKey(hash)) {
-            logger.warning("Hash collision: " + hash);
-        }
-        javaInstanceMap.put(hash, o);
-        return hash;
+    public static void release(V8 runtime) {
+        Utils.releaseAllFor(runtime);
+        runtime.release();
     }
 
 }
