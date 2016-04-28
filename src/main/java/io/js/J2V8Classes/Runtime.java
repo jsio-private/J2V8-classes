@@ -33,9 +33,12 @@ public class Runtime {
             public void invoke(final V8Object receiver, final V8Array parameters) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("JS: ");
-                for (int i = 0; i < parameters.length(); i++) {
+                for (int i = 0, j = parameters.length(); i < j; i++) {
                     Object obj = parameters.get(i);
                     sb.append(obj);
+//                    if (i < j - 1) {
+//                        sb.append(' ');
+//                    }
                     if (obj instanceof V8Value) {
                         ((V8Value) obj).release();
                     }

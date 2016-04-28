@@ -9,17 +9,23 @@ import javassist.*;
  */
 public class ClassGenerator {
 
-    public static Class createClass(V8 runtime, String canonicalName, String parentClz, V8Array methods) {
+    public static Class createClass(V8 runtime, String canonicalName, String superClzCanonicalName, V8Array methods) {
         ClassPool cp = ClassPool.getDefault();
 
         try {
-              CtClass clz = cp.makeClass(canonicalName, cp.getCtClass(parentClz));
+            CtClass superClz = cp.getCtClass(superClzCanonicalName);
+            CtClass clz = cp.makeClass(canonicalName, superClz);
+
+            // Add matching constructors if the super class is not dynamic
+            CtConstructor[] c = superClz.getConstructors();
+            for (int i = 0; i < c.length; i++) {
+                CtConstructor proxyConstructor = CtNewConstructor.make(c[i].getParameterTypes(), c[i].getExceptionTypes(), clz);
+                clz.addConstructor(proxyConstructor);
+            }
+
 
 //              CtMethod m = CtNewMethod.make("public int xmove(int dx) { return dx + 1; }", clz);
 //              clz.addMethod(m);
-
-//            CtConstructor constructor = clz.makeClassInitializer();
-//            clz.addConstructor(constructor);
 
 //            for (int i = 0, j = methods.length(); i < j; i++) {
 //                String name = methods.getObject(i).getString("name");
