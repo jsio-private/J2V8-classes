@@ -22,6 +22,7 @@ public class StaticAnimals {
 
     public static Animal cat = new Animal("cat");
     public static Animal dog = new Animal("dog");
+    public static Animal field_very_obfuscated_2394820948 = new Animal("bald_eagle");
 
     public static ArrayList<Animal> animals = new ArrayList<>();
     public static void registerAnimal(Animal animal) {

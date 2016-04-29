@@ -5,6 +5,7 @@ import com.eclipsesource.v8.*;
 import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -13,6 +14,24 @@ import java.util.logging.Logger;
  */
 public class Runtime {
     private static Logger logger = Logger.getLogger("Runtime");
+
+    // key is obfuscated name, value is un-obfuscated name
+    public static final HashMap<String, String> obfuscatedFieldMap = new HashMap();
+    public static final HashMap<String, String> obfuscatedMethodMap = new HashMap();
+
+    private static String getMappedFieldName(String obf){
+        if(obfuscatedFieldMap.containsKey(obf)){
+            return obfuscatedFieldMap.get(obf);
+        }
+        return obf;
+    }
+
+    private static String getMappedMethodName(String obf){
+        if(obfuscatedMethodMap.containsKey(obf)){
+            return obfuscatedMethodMap.get(obf);
+        }
+        return obf;
+    }
 
     public static V8 getRuntime() {
         V8 runtime = V8.createV8Runtime();
@@ -226,7 +245,7 @@ public class Runtime {
                     Method[] ms = fromRecvClz.getMethods();
                     logger.info("Finding method... " + Utils.getClassName(fromRecvClz) + " " + mName + " (total " + ms.length + ")");
                     for (int i = 0; i < ms.length; i++) {
-                        if (ms[i].getName() != mName) {
+                        if (!ms[i].getName().equals(mName)) {
                             continue;
                         }
 
@@ -281,7 +300,7 @@ public class Runtime {
                 return new V8Object(runtime);
             }
         };
-        parent.registerJavaMethod(staticMethod, mName);
+        parent.registerJavaMethod(staticMethod, getMappedMethodName(mName));
     }
 
     private static V8Object getReturnValue(V8 runtime, Object v) {
@@ -366,7 +385,7 @@ public class Runtime {
                 return new V8Object(runtime);
             }
         };
-        parent.registerJavaMethod(getter, "__get_" + fName);
+        parent.registerJavaMethod(getter, "__get_" + getMappedFieldName(fName));
 
         JavaVoidCallback setter = new JavaVoidCallback() {
             public void invoke(final V8Object receiver, final V8Array parameters) {
@@ -391,7 +410,7 @@ public class Runtime {
                 }
             }
         };
-        parent.registerJavaMethod(setter, "__set_" + fName);
+        parent.registerJavaMethod(setter, "__set_" + getMappedFieldName(fName));
     }
 
     public static void release(V8 runtime) {
