@@ -147,14 +147,21 @@ public class Runtime {
     private static V8Object createInstance(V8 runtime, String className, Object[] parameters) throws ClassNotFoundException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
         logger.info("Getting class instance: " + className);
         Class clz = Class.forName(className);
-        Class[] parameterTypes = Utils.getArrayClasses(parameters);
 
         // TODO: support for nested classes? http://stackoverflow.com/a/17485341
-        logger.info("> Getting constructor for: " + Arrays.toString(parameterTypes));
-        Constructor c = clz.getConstructor(parameterTypes);
+        logger.info("> Getting constructor");
+        Executable inferredMethod = Utils.findMatchingExecutable(
+                clz.getConstructors(),
+                parameters,
+                null
+        );
 
-        Object instance = c.newInstance(parameters);
+        if (inferredMethod == null) {
+            logger.warning("> Could not find constructor");
+            return null;
+        }
 
+        Object instance = ((Constructor) inferredMethod).newInstance(parameters);
         return Utils.getV8ObjectForObject(runtime, instance);
     }
 
@@ -173,11 +180,12 @@ public class Runtime {
         }
 
         logger.info("> Getting methods");
-        Method[] m = clz.getDeclaredMethods();
+        Method[] methods = clz.getDeclaredMethods();
         V8Object jsM = parent.getObject("methods");
-        for (int i = 0; i < m.length; i++) {
-            if (Modifier.isStatic(m[i].getModifiers()) == statics) {
-                generateMethod(jsM, m[i]);
+        for (int i = 0; i < methods.length; i++) {
+            Method m = methods[i];
+            if (Modifier.isStatic(m.getModifiers()) == statics) {
+                generateMethod(jsM, m);
             }
         }
 
@@ -204,6 +212,10 @@ public class Runtime {
             logger.info(">>> Skipping private");
             return;
         }
+        if (Modifier.isProtected(mods)) {
+            logger.info(">>> Skipping protected");
+            return;
+        }
 
         JavaCallback staticMethod = new JavaCallback() {
             public V8Object invoke(final V8Object receiver, final V8Array parameters) {
@@ -214,62 +226,24 @@ public class Runtime {
                         return new V8Object(runtime);
                     }
                     Object[] args = Utils.v8arrayToObjectArray(parameters);
-                    logger.info("Method: " + m.getName());
-//                    logger.info("Args: " + Arrays.toString(args));
+                    logger.info("Method: " + mName);
+                    logger.info("Args: " + Arrays.toString(args));
 
-                    Class[] argTypes = Utils.getArrayClasses(args);
-                    logger.info("Arg types: " + Arrays.toString(argTypes));
-
-                    Method inferredMethod = null;
-//                    Method inferredMethod = fromRecv.getClass().getDeclaredMethod(mName, argTypes);
                     Class fromRecvClz = fromRecv instanceof Class ? (Class) fromRecv : fromRecv.getClass();
-                    Method[] ms = fromRecvClz.getMethods();
-                    logger.info("Finding method... " + Utils.getClassName(fromRecvClz) + " " + mName + " (total " + ms.length + ")");
-                    for (int i = 0; i < ms.length; i++) {
-                        if (ms[i].getName() != mName) {
-                            continue;
-                        }
 
-                        Class[] paramTypes = ms[i].getParameterTypes();
-                        logger.info("Testing against paramTypes: " + Arrays.toString(paramTypes));
-                        if (paramTypes.length != argTypes.length) {
-                            continue;
-                        }
+                    logger.info("fromRecvClz: " + Utils.getClassName(fromRecvClz));
 
-                        boolean match = true;
-                        for (int j = 0; j < paramTypes.length; j++) {
-                            if (paramTypes[j].isArray() && argTypes[j].isArray()) {
-                                Object[] arr = (Object[]) args[j];
-                                args[j] = Arrays.copyOf(arr, arr.length, paramTypes[j]); // cast the Object[] array to whatever the Java method wants
-                                match = true;
-                                break;
-                            } else if (paramTypes[j].isAssignableFrom(ArrayList.class) && argTypes[j].isArray()) {
-                                ArrayList list = new ArrayList();
-                                Object[] arr = (Object[]) args[j];
-                                for(int k = 0; k < arr.length; k++){
-                                    list.add(arr[k]);
-                                }
-                                args[j] = list;
-                                match = true;
-                                break;
-                            } else if (!paramTypes[j].isAssignableFrom(argTypes[j])) {
-                                match = false;
-                                break;
-                            }
-                        }
-                        if (match) {
-                            inferredMethod = ms[i];
-                            break;
-                        }
-                    }
+                    Executable inferredMethod = Utils.findMatchingExecutable(
+                            fromRecvClz.getMethods(),
+                            args,
+                            mName
+                    );
 
                     if (inferredMethod == null) {
-                        logger.warning("Could not infer method, argument class signature not found");
                         return new V8Object(runtime);
                     }
 
-//                    Object v = m.invoke(fromRecv, args);
-                    Object v = inferredMethod.invoke(fromRecv, args);
+                    Object v = ((Method) inferredMethod).invoke(fromRecv, args);
                     return getReturnValue(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -349,6 +323,10 @@ public class Runtime {
         int mods = f.getModifiers();
         if (Modifier.isPrivate(mods)) {
             logger.info(">>> Skipping private");
+            return;
+        }
+        if (Modifier.isProtected(mods)) {
+            logger.info(">>> Skipping protected");
             return;
         }
 

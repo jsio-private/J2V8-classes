@@ -281,6 +281,11 @@
         args.unshift(instChildClass);
         print('> Instance args: ', JSON.stringify(args));
         instData = JavaCreateInstance.apply(this, args);
+
+        if (!instData) {
+          print('WARNING: instData not valid... JavaCreateInstance must have failed');
+          throw new Error('JavaCreateInstance failed');
+        }
       }
 
 

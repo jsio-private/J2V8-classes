@@ -7,7 +7,8 @@ import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Array;
+import java.lang.reflect.Executable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -43,8 +44,12 @@ public class Utils {
             Object o = v8array.get(i);
             int idx = i - start;
             res[idx] = o;
-            // Replace instances with their java counterparts
-            if (o instanceof V8Object) {
+            // Replace V8Value instances with their java counterparts
+            if (o instanceof V8Array) {
+                V8Array v8o = (V8Array) o;
+                res[idx] = v8arrayToObjectArray(v8o);
+//                v8o.release();
+            } else if (o instanceof V8Object) {
                 V8Object v8o = (V8Object) o;
                 if (v8o.contains("__javaInstance")) {
                     int instHash = v8o.getInteger("__javaInstance");
@@ -53,20 +58,59 @@ public class Utils {
                         logger.warning("v8arrayToObjectArray: unknown instance: " + instHash);
                     } else {
                         res[idx] = inst;
+//                        v8o.release();
                     }
-                } else if (v8o instanceof V8Array){
-                    V8Array v8Array = (V8Array) v8o;
-                    Object arr = Array.newInstance(Object.class, v8Array.length());
-                    for(int k = 0; k < v8Array.length(); k++){
-                        Array.set(arr, k, v8Array.get(k));
-                    }
-                    res[idx] = arr;
-                    logger.info("converted V8 array to Java: "+v8o);
                 }
-                v8o.release();
             }
         }
         return res;
+    }
+
+    public static Executable findMatchingExecutable(Executable[] excs, Object[] params, String name) {
+        // TODO: support varargs without passing as array
+        logger.info("Finding method...  \"" + name + "\" (total " + excs.length + ")");
+
+        Class[] paramTypes = Utils.getArrayClasses(params);
+        logger.info("Arg types: " + Arrays.toString(paramTypes));
+
+        for (int i = 0; i < excs.length; i++) {
+            if (name != null && excs[i].getName() != name) {
+                continue;
+            }
+
+            Class[] excParamTypes = excs[i].getParameterTypes();
+            logger.info("> Testing against " + excs[i].getName() + "(args: " + Arrays.toString(excParamTypes) + ")");
+            if (excParamTypes.length != paramTypes.length) {
+                continue;
+            }
+
+            boolean match = true;
+
+            for (int j = 0; j < paramTypes.length; j++) {
+                Class need = excParamTypes[j];
+                Class got = paramTypes[j];
+                if (!need.isAssignableFrom(got)) {
+                    boolean primitiveMatch = (
+                            int.class.equals(need) && Integer.class.equals(got))
+                            || (long.class.equals(need) && Long.class.equals(got))
+                            || (char.class.equals(need) && Character.class.equals(got))
+                            || (short.class.equals(need) && Short.class.equals(got))
+                            || (boolean.class.equals(need) && Boolean.class.equals(got))
+                            || (byte.class.equals(need) && Byte.class.equals(got)
+                            );
+                    if (!primitiveMatch) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+            if (match) {
+                return excs[i];
+            }
+        }
+
+        logger.warning("Could not infer executable, parameter class signature not found");
+        return null;
     }
 
 
@@ -92,7 +136,10 @@ public class Utils {
 
     public static V8Object getV8ObjectForObject(V8 runtime, Object o) {
         int hash = o.hashCode();
-        logger.info("Finding V8Object for: " + hash);
+        Class clz = o.getClass();
+        String clzName = getClassName(clz);
+        logger.info("Finding V8Object for: " + clzName + " : "+ hash + "");
+
         if (jsInstanceMap.containsKey(hash)) {
             V8Object jsInst = (V8Object) jsInstanceMap.get(hash);
             if (!jsInst.isReleased()) {
@@ -101,8 +148,6 @@ public class Utils {
             logger.warning("Trying to return a released instance!");
         }
 
-        Class clz = o.getClass();
-        String clzName = getClassName(clz);
         logger.info("> None found, registering new: " + clzName);
 
         V8Object res = new V8Object(runtime);
@@ -134,11 +179,14 @@ public class Utils {
     }
 
     public static String getClassName(Class clz) {
+        // TODO: find a better way of determining inner classes
+        // canonical is null for nested classes
         String canonicalName = clz.getCanonicalName();
-        if (canonicalName != null) {
+        String name = clz.getName();
+        if (name.equals(canonicalName)) {
             return canonicalName;
         }
-        return clz.getName();
+        return name;
     }
 
     public static Class[] getArrayClasses(Object[] arr) {
