@@ -4,10 +4,12 @@ import com.eclipsesource.v8.V8;
 import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -32,6 +34,23 @@ public class Utils {
     }
 
 
+    public static Class lowestCommonClass(Class c1, Class c2) {
+        if (c1 == c2) {
+            return c1;
+        }
+
+        if (c1.isAssignableFrom(c2)) {
+            return c1;
+        }
+
+        if (c2.isAssignableFrom(c1)) {
+            return c2;
+        }
+
+        return Object.class;
+    }
+
+
     public static Object[] v8arrayToObjectArray(V8Array v8array) {
         return v8arrayToObjectArray(v8array, 0, v8array.length());
     }
@@ -40,13 +59,20 @@ public class Utils {
     }
     public static Object[] v8arrayToObjectArray(V8Array v8array, int start, int end) {
         Object[] res = new Object[end - start];
+        logger.info("v8arrayToObjectArray: " + (end - start));
+
+        Class lowestCommonClass = null;
+        boolean hasUnanimousClass = true;
+
         for (int i = start; i < end; i++) {
             Object o = v8array.get(i);
             int idx = i - start;
             res[idx] = o;
+
             // Replace V8Value instances with their java counterparts
             if (o instanceof V8Array) {
                 V8Array v8o = (V8Array) o;
+                logger.info("Found array, recursing...");
                 res[idx] = v8arrayToObjectArray(v8o);
 //                v8o.release();
             } else if (o instanceof V8Object) {
@@ -62,6 +88,101 @@ public class Utils {
                     }
                 }
             }
+
+            Class resClz = res[idx].getClass();
+            logger.info("resClz: " + i + ": " + resClz.getName());
+            if (hasUnanimousClass) {
+                if (lowestCommonClass == null) {
+                    lowestCommonClass = resClz;
+                } else {
+                    lowestCommonClass = lowestCommonClass(lowestCommonClass, resClz);
+                }
+            }
+        }
+
+        if (lowestCommonClass != null && hasUnanimousClass) {
+            logger.info("lowestCommonClass: " + lowestCommonClass.getName());
+            try {
+                // TODO: this seems like cancer
+                String lccName = lowestCommonClass.getName();
+                if (!lowestCommonClass.isArray()) {
+                    lccName = "[L" + lccName + ";";
+                } else {
+                    lccName = "[" + lccName;
+                }
+                Class<? extends Object[]> newClz = (Class<? extends Object[]>) Class.forName(lccName);
+                return Arrays.copyOf(res, res.length, newClz);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        return res;
+    }
+
+    public static Object[] toObjectArray(Object orig) {
+        Class clz = orig.getClass();
+        if (!clz.isArray()) {
+            logger.warning("Provided class is not an array: " + clz.getName());
+            return null;
+        }
+
+        Class componentClz = clz.getComponentType();
+        if (componentClz.isPrimitive()) {
+            // TODO: surely there is a better way
+            if (int.class.equals(componentClz)) {
+                return ArrayUtils.toObject((int[]) orig);
+            }
+            if (long.class.equals(componentClz)) {
+                return ArrayUtils.toObject((long[]) orig);
+            }
+            if (char.class.equals(componentClz)) {
+                return ArrayUtils.toObject((char[]) orig);
+            }
+            if (short.class.equals(componentClz)) {
+                return ArrayUtils.toObject((short[]) orig);
+            }
+            if (boolean.class.equals(componentClz)) {
+                return ArrayUtils.toObject((boolean[]) orig);
+            }
+            if (byte.class.equals(componentClz)) {
+                return ArrayUtils.toObject((byte[]) orig);
+            }
+        }
+        return (Object[]) orig;
+    }
+
+    public static Object[] matchExecutableParams(Executable exc, Object[] params) {
+        Object[] res = new Object[params.length];
+        Class[] excParamTypes = exc.getParameterTypes();
+
+        for (int i = 0; i < params.length; i++) {
+            Class need = excParamTypes[i];
+            Class got = params[i].getClass();
+            if (int[].class.equals(need) && Integer[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Integer[]) params[i]);
+                continue;
+            }
+            if (long[].class.equals(need) && Long[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Long[]) params[i]);
+                continue;
+            }
+            if (char[].class.equals(need) && Character[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Character[]) params[i]);
+                continue;
+            }
+            if (short[].class.equals(need) && Short[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Short[]) params[i]);
+                continue;
+            }
+            if (boolean[].class.equals(need) && Boolean[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Boolean[]) params[i]);
+                continue;
+            }
+            if (byte[].class.equals(need) && Byte[].class.equals(got)) {
+                res[i] = ArrayUtils.toPrimitive((Byte[]) params[i]);
+                continue;
+            }
+            res[i] = need.cast(params[i]);
         }
         return res;
     }
@@ -71,7 +192,12 @@ public class Utils {
         logger.info("Finding method...  \"" + name + "\" (total " + excs.length + ")");
 
         Class[] paramTypes = Utils.getArrayClasses(params);
-        logger.info("Arg types: " + Arrays.toString(paramTypes));
+        logger.info("Arg classes: " + Arrays.toString(paramTypes));
+        Type[] paramTypes2 = new Type[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            paramTypes2[i] = params[i].getClass();
+        }
+        logger.info("Arg types: " + Arrays.toString(paramTypes2));
 
         for (int i = 0; i < excs.length; i++) {
             if (name != null && excs[i].getName() != name) {
@@ -80,6 +206,8 @@ public class Utils {
 
             Class[] excParamTypes = excs[i].getParameterTypes();
             logger.info("> Testing against " + excs[i].getName() + "(args: " + Arrays.toString(excParamTypes) + ")");
+            Type[] excParamTypes2 = excs[i].getGenericParameterTypes();
+            logger.info(">> : " + Arrays.toString(excParamTypes2));
             if (excParamTypes.length != paramTypes.length) {
                 continue;
             }
@@ -89,22 +217,46 @@ public class Utils {
             for (int j = 0; j < paramTypes.length; j++) {
                 Class need = excParamTypes[j];
                 Class got = paramTypes[j];
-                if (!need.isAssignableFrom(got)) {
-                    boolean primitiveMatch = (
-                            int.class.equals(need) && Integer.class.equals(got))
-                            || (long.class.equals(need) && Long.class.equals(got))
-                            || (char.class.equals(need) && Character.class.equals(got))
-                            || (short.class.equals(need) && Short.class.equals(got))
-                            || (boolean.class.equals(need) && Boolean.class.equals(got))
-                            || (byte.class.equals(need) && Byte.class.equals(got)
-                            );
-                    if (!primitiveMatch) {
-                        match = false;
-                        break;
+                if (need.isAssignableFrom(got) || need.equals(got)) {
+                    continue;
+                }
+
+                if (need.isArray() && got.isArray()) {
+                    Class need0 = need.getComponentType();
+                    Class got0 = got.getComponentType();
+                    if (need0.isAssignableFrom(got0)) {
+                        continue;
                     }
                 }
+
+                // Check primatives
+                boolean primitiveMatch = need.isPrimitive() && (
+                        int.class.equals(need) && Integer.class.equals(got))
+                        || (long.class.equals(need) && Long.class.equals(got))
+                        || (char.class.equals(need) && Character.class.equals(got))
+                        || (short.class.equals(need) && Short.class.equals(got))
+                        || (boolean.class.equals(need) && Boolean.class.equals(got))
+                        || (byte.class.equals(need) && Byte.class.equals(got)
+                        );
+                if (primitiveMatch) {
+                    continue;
+                }
+
+                // Check primative arrays
+                if ((int[].class.equals(need) && Integer[].class.equals(got))
+                        || (long[].class.equals(need) && Long[].class.equals(got))
+                        || (char[].class.equals(need) && Character[].class.equals(got))
+                        || (short[].class.equals(need) && Short[].class.equals(got))
+                        || (boolean[].class.equals(need) && Boolean[].class.equals(got))
+                        || (byte[].class.equals(need) && Byte[].class.equals(got))
+                        ) {
+                    continue;
+                }
+
+                match = false;
             }
             if (match) {
+                logger.info("> Found: " + excs[i]);
                 return excs[i];
             }
         }
@@ -151,7 +303,6 @@ public class Utils {
         logger.info("> None found, registering new: " + clzName);
 
         V8Object res = new V8Object(runtime);
-//        V8Object res = generateAllGetSet(runtime, clz, o, false);
         res.add("__javaInstance", hash);
         res.add("__javaClass", clzName);
 

@@ -2,15 +2,15 @@ var Animal = ClassHelpers.getClass('io.js.J2V8Classes.Animal');
 var StaticAnimals = ClassHelpers.getClass('io.js.J2V8Classes.StaticAnimals');
 
 var Bear = Animal.$extend({
-    __name__: 'Bear',
-    __init__: function(subtype) {
-        this.$super('bear');
-        this.subtype = subtype;
-    },
+   __name__: 'Bear',
+   __init__: function(subtype) {
+       this.$super('bear');
+       this.subtype = subtype;
+   },
 
-    getSubtype: function() {
-        return this.subtype;
-    }
+   getSubtype: function() {
+       return this.subtype;
+   }
 });
 
 var Bear2 = Bear.$extend({

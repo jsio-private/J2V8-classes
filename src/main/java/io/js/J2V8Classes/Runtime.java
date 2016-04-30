@@ -3,9 +3,7 @@ package io.js.J2V8Classes;
 import com.eclipsesource.v8.*;
 
 import java.lang.reflect.*;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -100,24 +98,7 @@ public class Runtime {
                 ClassGenerator.createClass(runtime, className, superName, methods);
 
                 methods.release();
-
-//                try {
-//                    logger.info("GENERATE CLASS PARAMS " + parameters.length());
-//                    return createInstance(runtime, className, Utils.v8arrayToObjectArray(methods));
-                    return new V8Object(runtime);
-//                }
-//                catch (ClassNotFoundException e) {
-//                    logger.warning("> Class not found");
-//                } catch (IllegalAccessException e) {
-//                    e.printStackTrace();
-//                } catch (InstantiationException e) {
-//                    e.printStackTrace();
-//                } catch (InvocationTargetException e) {
-//                    e.printStackTrace();
-//                } catch (NoSuchMethodException e) {
-//                    e.printStackTrace();
-//                }
-//                return null;
+                return new V8Object(runtime);
             }
         };
         runtime.registerJavaMethod(generateClass, "JavaGenerateClass");
@@ -243,7 +224,7 @@ public class Runtime {
                         return new V8Object(runtime);
                     }
 
-                    Object v = ((Method) inferredMethod).invoke(fromRecv, args);
+                    Object v = ((Method) inferredMethod).invoke(fromRecv, Utils.matchExecutableParams(inferredMethod, args));
                     return getReturnValue(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -274,9 +255,9 @@ public class Runtime {
             res.add("v", (int) v);
         } else if (vClass == String.class) {
             res.add("v", (String) v);
-        } else if (v instanceof Object[]) {
-            logger.info("> Class Array! " + vClass);
-            Object[] oarr = (Object[]) v;
+        } else if (vClass.isArray()) {
+            logger.info("> Array! " + vClass);
+            Object[] oarr = Utils.toObjectArray(v);
             V8Array arr = new V8Array(runtime);
             for (int i = 0; i < oarr.length; i++) {
                 arr.push(getReturnValue(runtime, oarr[i]));
