@@ -408,7 +408,7 @@
             className = 'Dynamic_' + (_classUid++);
           }
 
-          var javaClass = _DYNAMIC_PACKAGE + '.Dynamic.' + className;
+          var javaClass = _DYNAMIC_PACKAGE + '.' + __runtimeName + '.' + className;
           print('> parent.__javaClass= ', superClass);
           print('> new javaClass: ', javaClass);
 
@@ -453,7 +453,7 @@
     return clz;
   };
 
-  var _DYNAMIC_PACKAGE = 'io.js.enderScript';
+  var _DYNAMIC_PACKAGE = 'io.js.enderScript.Dynamic';
   var _MAX_CUSTOM_CLASS_COUNT = 1000;
   var _classUid = 0;
 

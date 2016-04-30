@@ -10,17 +10,18 @@ import org.junit.Test;
 public class TestJavaInheritance {
     @Test
     public void testJavaInheritance() {
-        V8 runtime = Runtime.getRuntime();
-        runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaInheritance.js"));
+        Runtime runtime = new Runtime("testJavaInheritance");
+        V8 v8 = runtime.getRuntime();
+        v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaInheritance.js"));
 
         // Check original functionality
-        Assert.assertEquals("fish", runtime.executeStringScript("myAnimal.type"));
-        Assert.assertEquals("fish", runtime.executeStringScript("myAnimal.getType()"));
+        Assert.assertEquals("fish", v8.executeStringScript("myAnimal.type"));
+        Assert.assertEquals("fish", v8.executeStringScript("myAnimal.getType()"));
 
         // Check extended functionality
-        Assert.assertEquals("fishy mcgee", runtime.executeStringScript("myAnimal.name"));
-        Assert.assertEquals("fishy mcgee", runtime.executeStringScript("myAnimal.getName()"));
+        Assert.assertEquals("fishy mcgee", v8.executeStringScript("myAnimal.name"));
+        Assert.assertEquals("fishy mcgee", v8.executeStringScript("myAnimal.getName()"));
 
-        Runtime.release(runtime);
+        runtime.release();
     }
 }

@@ -10,17 +10,18 @@ import org.junit.Test;
 public class TestJsExtendJava {
     @Test
     public void testJsExtendJava() {
-        V8 runtime = Runtime.getRuntime();
-        runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsExtendJava.js"));
+        Runtime runtime = new Runtime("testJsExtendJava");
+        V8 v8 = runtime.getRuntime();
+        v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsExtendJava.js"));
 
         // Check original class var
-        Assert.assertEquals("bear", runtime.executeStringScript("myBear.type"));
+        Assert.assertEquals("bear", v8.executeStringScript("myBear.type"));
 
         // Check extended class method
-        Assert.assertEquals("grizzly", runtime.executeStringScript("myBear.getSubtype()"));
+        Assert.assertEquals("grizzly", v8.executeStringScript("myBear.getSubtype()"));
 
         // Check extended x2 class method
-        Assert.assertEquals(true, runtime.executeBooleanScript("myBear.bear2Func()"));
+        Assert.assertEquals(true, v8.executeBooleanScript("myBear.bear2Func()"));
 
         // Check interactions with java
         Animal bear = StaticAnimals.animals.get(0);
@@ -28,6 +29,6 @@ public class TestJsExtendJava {
         Assert.assertEquals(true, bear instanceof Animal);
         Assert.assertEquals("bear", bear.getType());
 
-        Runtime.release(runtime);
+        runtime.release();
     }
 }

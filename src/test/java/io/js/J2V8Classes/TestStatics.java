@@ -10,23 +10,24 @@ import org.junit.Test;
 public class TestStatics {
     @Test
     public void testJavaStatics() {
-        V8 runtime = Runtime.getRuntime();
-        runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testStatics.js"));
+        Runtime runtime = new Runtime("testJavaStatics");
+        V8 v8 = runtime.getRuntime();
+        v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testStatics.js"));
 
         // Check field
-        Assert.assertEquals(123, runtime.executeIntegerScript("StaticAnimals.SomeNumber"));
+        Assert.assertEquals(123, v8.executeIntegerScript("StaticAnimals.SomeNumber"));
         // Check method
-        Assert.assertEquals("asdf!", runtime.executeStringScript("StaticAnimals.SomeFunc('asdf')"));
+        Assert.assertEquals("asdf!", v8.executeStringScript("StaticAnimals.SomeFunc('asdf')"));
         // Check instances
-        Assert.assertEquals("cat", runtime.executeStringScript("StaticAnimals.cat.getType()"));
-        Assert.assertEquals("dog", runtime.executeStringScript("StaticAnimals.dog.type"));
+        Assert.assertEquals("cat", v8.executeStringScript("StaticAnimals.cat.getType()"));
+        Assert.assertEquals("dog", v8.executeStringScript("StaticAnimals.dog.type"));
 
         // Test setting a static value
         int n = 789;
-        runtime.executeVoidScript("StaticAnimals.SomeNumber = " + n + ";");
-        Assert.assertEquals(n, runtime.executeIntegerScript("StaticAnimals.SomeNumber"));
+        v8.executeVoidScript("StaticAnimals.SomeNumber = " + n + ";");
+        Assert.assertEquals(n, v8.executeIntegerScript("StaticAnimals.SomeNumber"));
         Assert.assertEquals(n, StaticAnimals.SomeNumber);
 
-        Runtime.release(runtime);
+        runtime.release();
     }
 }

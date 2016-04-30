@@ -10,10 +10,25 @@ import java.util.logging.Logger;
  * Created by Brown on 4/26/16.
  */
 public class Runtime {
-    private static Logger logger = Logger.getLogger("Runtime");
 
-    public static V8 getRuntime() {
-        V8 runtime = V8.createV8Runtime();
+    private Logger logger;
+    private String name;
+
+    private V8 runtime;
+
+    public Runtime(String name) {
+        this.name = name;
+        logger = Logger.getLogger("Runtime-" + name);
+    }
+
+    public V8 getRuntime() {
+        if (runtime != null) {
+            return runtime;
+        }
+
+        runtime = V8.createV8Runtime();
+
+        runtime.executeVoidScript("__runtimeName='" + name + "';");
 
         runtime.executeVoidScript(
                 Utils.getScriptSource(
@@ -109,7 +124,7 @@ public class Runtime {
     }
 
 
-    private static void getClassInfo(String className, V8Object classInfo) throws ClassNotFoundException, IllegalAccessException {
+    private void getClassInfo(String className, V8Object classInfo) throws ClassNotFoundException, IllegalAccessException {
         logger.info("Getting class info: " + className);
         Class clz = Class.forName(className);
 
@@ -125,7 +140,7 @@ public class Runtime {
     }
 
 
-    private static V8Object createInstance(V8 runtime, String className, Object[] parameters) throws ClassNotFoundException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
+    private V8Object createInstance(V8 runtime, String className, Object[] parameters) throws ClassNotFoundException, IllegalAccessException, InstantiationException, InvocationTargetException, NoSuchMethodException {
         logger.info("Getting class instance: " + className);
         Class clz = Class.forName(className);
 
@@ -146,7 +161,7 @@ public class Runtime {
         return Utils.getV8ObjectForObject(runtime, instance);
     }
 
-    private static void generateAllGetSet(V8Object parent, Class clz, Object instance, boolean statics) {
+    private void generateAllGetSet(V8Object parent, Class clz, Object instance, boolean statics) {
         V8 runtime = parent.getRuntime();
 
         logger.info("Generating getters and setters for: " + clz.getName() + "(" + instance.hashCode() + ", " + statics + ")");
@@ -182,7 +197,7 @@ public class Runtime {
         }
     }
 
-    private static void generateMethod(V8Object parent, Method m) {
+    private void generateMethod(V8Object parent, Method m) {
         V8 runtime = parent.getRuntime();
 
         String mName = m.getName();
@@ -239,7 +254,7 @@ public class Runtime {
         parent.registerJavaMethod(staticMethod, mName);
     }
 
-    private static V8Object getReturnValue(V8 runtime, Object v) {
+    private V8Object getReturnValue(V8 runtime, Object v) {
         V8Object res = new V8Object(runtime);
         if (v == null) {
             res.addNull("v");
@@ -274,7 +289,7 @@ public class Runtime {
         return res;
     }
 
-    public static Object getReceiverFromCallback(V8Object receiver) throws ClassNotFoundException {
+    public Object getReceiverFromCallback(V8Object receiver) throws ClassNotFoundException {
         if (!receiver.contains("__javaInstance")) {
             if (!receiver.contains("__javaClass")) {
                 logger.warning("Callback with no bound java receiver!");
@@ -285,7 +300,7 @@ public class Runtime {
         return Utils.getInstance(receiver.getInteger("__javaInstance"));
     }
 
-    private static V8Object getFromField(V8 runtime, V8Object receiver, Field f) throws IllegalAccessException, ClassNotFoundException {
+    private V8Object getFromField(V8 runtime, V8Object receiver, Field f) throws IllegalAccessException, ClassNotFoundException {
         Object fromRecv = getReceiverFromCallback(receiver);
         if (fromRecv == null) {
             logger.warning("Could not find receiving Object for callback!");
@@ -295,7 +310,7 @@ public class Runtime {
         return getReturnValue(runtime, v);
     }
 
-    private static void generateGetSet(V8Object parent, Field f) {
+    private void generateGetSet(V8Object parent, Field f) {
         V8 runtime = parent.getRuntime();
 
         String fName = f.getName();
@@ -353,7 +368,7 @@ public class Runtime {
         parent.registerJavaMethod(setter, "__set_" + fName);
     }
 
-    public static void release(V8 runtime) {
+    public void release() {
         Utils.releaseAllFor(runtime);
         // TODO: better release logic... maybe add some cleanup stuff to jsClassHelper
         runtime.release(false);

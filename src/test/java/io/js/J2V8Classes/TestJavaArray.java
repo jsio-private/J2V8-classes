@@ -12,22 +12,23 @@ import java.util.Arrays;
 public class TestJavaArray {
 	@Test
 	public void testJavaArrays() {
-		V8 runtime = Runtime.getRuntime();
-		runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaArrays.js"));
+		Runtime runtime = new Runtime("testJavaArray");
+		V8 v8 = runtime.getRuntime();
+		v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaArrays.js"));
 
-		String[] res1 = (String[]) Utils.v8arrayToObjectArray(runtime.executeArrayScript("StaticAnimals.SomeFuncArray(['val1', 'val2'])"));
+		String[] res1 = (String[]) Utils.v8arrayToObjectArray(v8.executeArrayScript("StaticAnimals.SomeFuncArray(['val1', 'val2'])"));
 		String[] a1 = new String[]{"val1", "val2", "newVal"};
 		Assert.assertEquals(Arrays.toString(a1), Arrays.toString(res1));
 
-		String[] names2 = (String[]) Utils.v8arrayToObjectArray(runtime.executeArrayScript("StaticAnimals.SomeFuncVarargs([myBear, StaticAnimals.cat])"));
+		String[] names2 = (String[]) Utils.v8arrayToObjectArray(v8.executeArrayScript("StaticAnimals.SomeFuncVarargs([myBear, StaticAnimals.cat])"));
 		String[] a2 = new String[]{"bear", "cat"};
 		Assert.assertEquals(Arrays.toString(a2), Arrays.toString(names2));
 
-		String[] names3 = (String[]) Utils.v8arrayToObjectArray(runtime.executeArrayScript("StaticAnimals.SomeFuncVarargs([myBear, myBear2])"));
+		String[] names3 = (String[]) Utils.v8arrayToObjectArray(v8.executeArrayScript("StaticAnimals.SomeFuncVarargs([myBear, myBear2])"));
 		String[] a3 = new String[]{"bear", "bear"};
 		Assert.assertEquals(Arrays.toString(a3), Arrays.toString(names3));
 
-		Object[] res2 = (Object[]) Utils.v8arrayToObjectArray(runtime.executeArrayScript("StaticAnimals.SomeFuncArray([123, 456])"));
+		Object[] res2 = (Object[]) Utils.v8arrayToObjectArray(v8.executeArrayScript("StaticAnimals.SomeFuncArray([123, 456])"));
 		int[] a4 = new int[]{123, 456, 9};
 		Assert.assertEquals(Arrays.toString(a4), Arrays.toString(res2));
 
@@ -37,6 +38,6 @@ public class TestJavaArray {
 //		listExample.add("val3");
 //		Assert.assertEquals(listExample.toString(), runtime.executeStringScript("StaticAnimals.SomeFuncWithArrayList(['val1', 'val2', 'val3']);"));
 
-		Runtime.release(runtime);
+		runtime.release();
 	}
 }

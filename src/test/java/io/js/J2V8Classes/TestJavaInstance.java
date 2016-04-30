@@ -10,19 +10,20 @@ import org.junit.Test;
 public class TestJavaInstance {
     @Test
     public void testJavaInstance() {
-        V8 runtime = Runtime.getRuntime();
-        runtime.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testCustomInstance.js"));
+        Runtime runtime = new Runtime("testJavaInstance");
+        V8 v8 = runtime.getRuntime();
+        v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testCustomInstance.js"));
 
         // Check default constructor
-        Assert.assertEquals("unknown", runtime.executeStringScript("boringAnimal.type"));
+        Assert.assertEquals("unknown", v8.executeStringScript("boringAnimal.type"));
 
         // Check constructor + read
-        Assert.assertEquals("fish", runtime.executeStringScript("originalType"));
+        Assert.assertEquals("fish", v8.executeStringScript("originalType"));
         // Check read
-        Assert.assertEquals("zebra", runtime.executeStringScript("myAnimal.type"));
+        Assert.assertEquals("zebra", v8.executeStringScript("myAnimal.type"));
         // Check function call
-        Assert.assertEquals("zebra", runtime.executeStringScript("myAnimal.getType()"));
+        Assert.assertEquals("zebra", v8.executeStringScript("myAnimal.getType()"));
 
-        Runtime.release(runtime);
+        runtime.release();
     }
 }
