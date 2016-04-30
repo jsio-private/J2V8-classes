@@ -34,6 +34,10 @@ public class StaticAnimals {
         return res;
     }
 
+    public static int Floor(float f) {
+        return (int) f;
+    }
+
 //    public static String[] SomeFuncArray(ArrayList<String> s) {
 //        String[] res = Arrays.copyOf(s, s.length + 1);
 //        res[s.length] = "newVal";

@@ -158,33 +158,79 @@ public class Utils {
         for (int i = 0; i < params.length; i++) {
             Class need = excParamTypes[i];
             Class got = params[i].getClass();
-            if (int[].class.equals(need) && Integer[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Integer[]) params[i]);
-                continue;
+
+            if (isNumber(need)) {
+                if (int.class.equals(need)) {
+                    res[i] = ((Number) params[i]).intValue();
+                    continue;
+                }
+                if (long.class.equals(need)) {
+                    res[i] = ((Number) params[i]).longValue();
+                    continue;
+                }
+                if (float.class.equals(need)) {
+                    res[i] = ((Number) params[i]).floatValue();
+                    continue;
+                }
+                if (double.class.equals(need)) {
+                    res[i] = ((Number) params[i]).doubleValue();
+                    continue;
+                }
             }
-            if (long[].class.equals(need) && Long[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Long[]) params[i]);
-                continue;
+
+            if (need.isArray()) {
+                if (int[].class.equals(need) && Integer[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Integer[]) params[i]);
+                    continue;
+                }
+                if (long[].class.equals(need) && Long[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Long[]) params[i]);
+                    continue;
+                }
+                if (float[].class.equals(need) && Float[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Float[]) params[i]);
+                    continue;
+                }
+                if (double[].class.equals(need) && Double[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Double[]) params[i]);
+                    continue;
+                }
+                if (char[].class.equals(need) && Character[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Character[]) params[i]);
+                    continue;
+                }
+                if (short[].class.equals(need) && Short[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Short[]) params[i]);
+                    continue;
+                }
+                if (boolean[].class.equals(need) && Boolean[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Boolean[]) params[i]);
+                    continue;
+                }
+                if (byte[].class.equals(need) && Byte[].class.equals(got)) {
+                    res[i] = ArrayUtils.toPrimitive((Byte[]) params[i]);
+                    continue;
+                }
             }
-            if (char[].class.equals(need) && Character[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Character[]) params[i]);
-                continue;
-            }
-            if (short[].class.equals(need) && Short[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Short[]) params[i]);
-                continue;
-            }
-            if (boolean[].class.equals(need) && Boolean[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Boolean[]) params[i]);
-                continue;
-            }
-            if (byte[].class.equals(need) && Byte[].class.equals(got)) {
-                res[i] = ArrayUtils.toPrimitive((Byte[]) params[i]);
-                continue;
-            }
+
             res[i] = need.cast(params[i]);
         }
         return res;
+    }
+
+    public static boolean isNumber(Class clz) {
+        return clz == int.class || clz == float.class || clz == double.class || Number.class.isAssignableFrom(clz);
+    }
+
+    /** Note: should only be used internally, not a true primative match */
+    public static boolean primativeMatch(Class c1, Class c2) {
+        if (isNumber(c1) && isNumber(c2)) {
+            return true;
+        }
+        return (char.class.equals(c1) && Character.class.equals(c2))
+                || (short.class.equals(c1) && Short.class.equals(c2))
+                || (boolean.class.equals(c1) && Boolean.class.equals(c2))
+                || (byte.class.equals(c1) && Byte.class.equals(c2));
     }
 
     public static Executable findMatchingExecutable(Executable[] excs, Object[] params, String name) {
@@ -227,29 +273,18 @@ public class Utils {
                     if (need0.isAssignableFrom(got0)) {
                         continue;
                     }
+                    if (primativeMatch(need0, got0)) {
+                        continue;
+                    }
                 }
 
                 // Check primatives
-                boolean primitiveMatch = need.isPrimitive() && (
-                        int.class.equals(need) && Integer.class.equals(got))
-                        || (long.class.equals(need) && Long.class.equals(got))
-                        || (char.class.equals(need) && Character.class.equals(got))
-                        || (short.class.equals(need) && Short.class.equals(got))
-                        || (boolean.class.equals(need) && Boolean.class.equals(got))
-                        || (byte.class.equals(need) && Byte.class.equals(got)
-                        );
-                if (primitiveMatch) {
+                if (need.isPrimitive() && primativeMatch(need, got)) {
                     continue;
                 }
 
-                // Check primative arrays
-                if ((int[].class.equals(need) && Integer[].class.equals(got))
-                        || (long[].class.equals(need) && Long[].class.equals(got))
-                        || (char[].class.equals(need) && Character[].class.equals(got))
-                        || (short[].class.equals(need) && Short[].class.equals(got))
-                        || (boolean[].class.equals(need) && Boolean[].class.equals(got))
-                        || (byte[].class.equals(need) && Byte[].class.equals(got))
-                        ) {
+                // Soft match numbers
+                if (isNumber(need) && isNumber(got)) {
                     continue;
                 }
 

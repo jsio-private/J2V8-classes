@@ -28,6 +28,9 @@ public class TestStatics {
         Assert.assertEquals(n, v8.executeIntegerScript("StaticAnimals.SomeNumber"));
         Assert.assertEquals(n, StaticAnimals.SomeNumber);
 
+        // Test function inference
+        Assert.assertEquals(1.0, v8.executeDoubleScript("StaticAnimals.Floor(1.3)"), 0.1);
+
         runtime.release();
     }
 }
