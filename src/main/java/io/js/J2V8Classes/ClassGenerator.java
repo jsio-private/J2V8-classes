@@ -111,7 +111,11 @@ public class ClassGenerator {
 
             CtField jsMethods = new CtField(cp.get("[Ljava.lang.String;"), "__jsMethods", clz);
             jsMethods.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
-            clz.addField(jsMethods, CtField.Initializer.byExpr("new String[]{" + methodNames + "}"));
+            if (methodNames.length() > 0) {
+                clz.addField(jsMethods, CtField.Initializer.byExpr("new String[]{" + methodNames + "}"));
+            } else {
+                clz.addField(jsMethods, CtField.Initializer.byExpr("null"));
+            }
 
             return clz.toClass();
         } catch (CannotCompileException e) {
