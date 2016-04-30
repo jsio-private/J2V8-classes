@@ -1,3 +1,6 @@
 [submodule "src/main/resources/abitbol"]
 	path = src/main/resources/abitbol
 	url = https://github.com/jsio-private/abitbol
+[submodule "src/main/resources/esprima"]
+	path = src/main/resources/esprima
+	url = https://github.com/jquery/esprima

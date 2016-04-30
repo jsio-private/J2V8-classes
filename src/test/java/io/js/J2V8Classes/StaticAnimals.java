@@ -44,6 +44,17 @@ public class StaticAnimals {
     public static Animal dog = new Animal("dog");
 
     public static ArrayList<Animal> animals = new ArrayList<>();
+
+    public static Animal findAnimal(String type) {
+        for (int i = 0; i < animals.size(); i++) {
+            Animal animal = animals.get(i);
+            if (animal.getType().equals(type)) {
+                return animal;
+            }
+        }
+        return null;
+    }
+
     public static void registerAnimal(Animal animal) {
         animals.add(animal);
     }

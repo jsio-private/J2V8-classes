@@ -4,12 +4,15 @@ import com.eclipsesource.v8.*;
 
 import java.lang.reflect.*;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.logging.Logger;
 
 /**
  * Created by Brown on 4/26/16.
  */
 public class Runtime {
+
+    private static HashMap<String, Runtime> runtimes = new HashMap<>();
 
     private Logger logger;
     private String name;
@@ -21,12 +24,17 @@ public class Runtime {
         logger = Logger.getLogger("Runtime-" + name);
     }
 
+    public String getName() {
+        return name;
+    }
+
     public V8 getRuntime() {
         if (runtime != null) {
             return runtime;
         }
 
         runtime = V8.createV8Runtime();
+        runtimes.put(name, this);
 
         runtime.executeVoidScript("__runtimeName='" + name + "';");
 
@@ -102,7 +110,7 @@ public class Runtime {
         };
         runtime.registerJavaMethod(createInstance, "JavaCreateInstance");
 
-
+        final Runtime thiz = this;
         JavaCallback generateClass = new JavaCallback() {
             public V8Object invoke(final V8Object receiver, final V8Array parameters) {
                 String className = parameters.getString(0);
@@ -110,7 +118,7 @@ public class Runtime {
                 V8Array methods = parameters.getArray(2);
                 logger.info("Generating class: " + className + " extending " + superName + " (method count " + methods.length() + ")");
 
-                ClassGenerator.createClass(runtime, className, superName, methods);
+                ClassGenerator.createClass(thiz, className, superName, methods);
 
                 methods.release();
                 return new V8Object(runtime);
@@ -176,6 +184,18 @@ public class Runtime {
         }
 
         logger.info("> Getting methods");
+        // Dont send in js methods??
+        String[] jsMethods;
+        try {
+            Field __jsMethods = clz.getField("__jsMethods");
+            jsMethods = (String[]) __jsMethods.get(clz);
+        } catch(NoSuchFieldException e) {
+            jsMethods = new String[]{};
+        } catch(IllegalAccessException e) {
+            jsMethods = new String[]{};
+        }
+        logger.info(">> jsMethods= " + Arrays.toString(jsMethods));
+
         Method[] methods = clz.getDeclaredMethods();
         V8Object jsM = parent.getObject("methods");
         for (int i = 0; i < methods.length; i++) {
@@ -240,7 +260,7 @@ public class Runtime {
                     }
 
                     Object v = ((Method) inferredMethod).invoke(fromRecv, Utils.matchExecutableParams(inferredMethod, args));
-                    return getReturnValue(runtime, v);
+                    return Utils.toV8Object(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
                 } catch (InvocationTargetException e) {
@@ -252,41 +272,6 @@ public class Runtime {
             }
         };
         parent.registerJavaMethod(staticMethod, mName);
-    }
-
-    private V8Object getReturnValue(V8 runtime, Object v) {
-        V8Object res = new V8Object(runtime);
-        if (v == null) {
-            res.addNull("v");
-            return res;
-        }
-
-        Class vClass = v.getClass();
-        if (vClass == Boolean.class) {
-            res.add("v", (boolean) v);
-        } else if (vClass == Double.class) {
-            res.add("v", (double) v);
-        } else if (vClass == Integer.class) {
-            res.add("v", (int) v);
-        } else if (vClass == String.class) {
-            res.add("v", (String) v);
-        } else if (vClass.isArray()) {
-            logger.info("> Array! " + vClass);
-            Object[] oarr = Utils.toObjectArray(v);
-            V8Array arr = new V8Array(runtime);
-            for (int i = 0; i < oarr.length; i++) {
-                arr.push(getReturnValue(runtime, oarr[i]));
-            }
-            res.add("v", arr);
-            arr.release();
-        } else if (v instanceof Object) {
-            logger.info("> Class! " + vClass);
-            V8Object jsInst = Utils.getV8ObjectForObject(runtime, v);
-            res.add("v", jsInst);
-        } else {
-            logger.warning("> Unknown type! " + vClass);
-        }
-        return res;
     }
 
     public Object getReceiverFromCallback(V8Object receiver) throws ClassNotFoundException {
@@ -307,7 +292,7 @@ public class Runtime {
             return new V8Object(runtime);
         }
         Object v = f.get(fromRecv);
-        return getReturnValue(runtime, v);
+        return Utils.toV8Object(runtime, v);
     }
 
     private void generateGetSet(V8Object parent, Field f) {
@@ -369,9 +354,17 @@ public class Runtime {
     }
 
     public void release() {
+        runtimes.remove(name);
         Utils.releaseAllFor(runtime);
         // TODO: better release logic... maybe add some cleanup stuff to jsClassHelper
         runtime.release(false);
     }
 
+
+    public static Runtime getRuntime(String name) {
+        if (runtimes.containsKey(name)) {
+            return runtimes.get(name);
+        }
+        return null;
+    }
 }

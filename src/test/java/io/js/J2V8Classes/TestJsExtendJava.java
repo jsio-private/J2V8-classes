@@ -12,6 +12,10 @@ public class TestJsExtendJava {
     public void testJsExtendJava() {
         Runtime runtime = new Runtime("testJsExtendJava");
         V8 v8 = runtime.getRuntime();
+
+//        Object res = v8.executeFunction("executeInstanceMethod", new V8Array(v8));
+//        System.out.println("RES: " + res);
+
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsExtendJava.js"));
 
         // Check original class var
@@ -24,10 +28,30 @@ public class TestJsExtendJava {
         Assert.assertEquals(true, v8.executeBooleanScript("myBear.bear2Func()"));
 
         // Check interactions with java
-        Animal bear = StaticAnimals.animals.get(0);
-        Assert.assertNotEquals(null, bear);
+        Animal bear = StaticAnimals.findAnimal("bear");
+        Assert.assertNotNull(bear);
         Assert.assertEquals(true, bear instanceof Animal);
         Assert.assertEquals("bear", bear.getType());
+
+        runtime.release();
+    }
+
+    @Test
+    public void testJsExtendJava_methodOverride() {
+        Runtime runtime = new Runtime("testJsExtendJava_methodOverride");
+        V8 v8 = runtime.getRuntime();
+        v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsExtendJava.js"));
+
+        // Check js/js override
+        Assert.assertEquals("asdf", v8.executeStringScript("myOtherBear.getSubtype()"));
+
+        // Check js/java override
+        Assert.assertEquals("qwer", v8.executeStringScript("myOtherBear.getType()"));
+
+        // Check java override
+
+        Animal myOtherBear = StaticAnimals.findAnimal("qwer");
+        Assert.assertNotNull(myOtherBear);
 
         runtime.release();
     }

@@ -1,19 +1,23 @@
 package io.js.J2V8Classes;
 
-import com.eclipsesource.v8.V8;
 import com.eclipsesource.v8.V8Array;
+import com.eclipsesource.v8.V8Object;
 import javassist.*;
+
+import java.util.logging.Logger;
 
 /**
  * Created by Brown on 4/27/16.
  */
 public class ClassGenerator {
+    private static Logger logger = Logger.getLogger("ClassGenerator");
 
-    public static Class createClass(V8 runtime, String canonicalName, String superClzCanonicalName, V8Array methods) {
+    public static Class createClass(Runtime runtime, String canonicalName, String superClzName, V8Array methods) {
+        logger.info("Generating class: " + canonicalName + " extends " + superClzName);
         ClassPool cp = ClassPool.getDefault();
 
         try {
-            CtClass superClz = cp.getCtClass(superClzCanonicalName);
+            CtClass superClz = cp.getCtClass(superClzName);
             CtClass clz = cp.makeClass(canonicalName, superClz);
 
             // Add matching constructors if the super class is not dynamic
@@ -23,16 +27,91 @@ public class ClassGenerator {
                 clz.addConstructor(proxyConstructor);
             }
 
+            CtField runtimeName = new CtField(cp.get("java.lang.String"), "runtimeName", clz);
+            runtimeName.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
+            clz.addField(runtimeName, CtField.Initializer.constant(runtime.getName()));
 
-//              CtMethod m = CtNewMethod.make("public int xmove(int dx) { return dx + 1; }", clz);
-//              clz.addMethod(m);
 
-//            for (int i = 0, j = methods.length(); i < j; i++) {
-//                String name = methods.getObject(i).getString("name");
-//                CtMethod m = CtNewMethod.make("public Object " + name + "(int dx) { return dx + 1; }", clz);
-//                clz.addMethod(m);
-//            }
+            cp.importPackage("com.eclipsesource.v8");
+            cp.importPackage("io.js.J2V8Classes");
 
+            CtMethod runJsFunc = CtNewMethod.make(
+                    "private Object runJsFunc(String name, Object[] args) { " +
+                        "V8 v8 = io.js.J2V8Classes.Runtime.getRuntime(runtimeName).getRuntime();" +
+                        "V8Array v8Args = new V8Array(v8);" +
+                        "v8Args.push(hashCode());" +
+                        "v8Args.push(name);" +
+                        "v8Args.push(io.js.J2V8Classes.Utils.toV8Object(v8, args));" +
+                        "Object res = v8.executeFunction(" +
+                            "\"executeInstanceMethod\", v8Args" +
+                        ");" +
+                        "v8Args.release();" +
+                        "return res;" +
+                    "}",
+                    clz
+            );
+            clz.addMethod(runJsFunc);
+
+            String defaultReturn = "Object";
+            String defaultArgs = "Object[] args";
+
+            String methodNames = "";
+            for (int i = 0, j = methods.length(); i < j; i++) {
+                V8Object v8o = methods.getObject(i);
+                String name = v8o.getString("name");
+                logger.info("> Adding method: " + name);
+                methodNames += "\"" + name + "\"";
+
+                V8Object annotations = v8o.getObject("annotations");
+                if (annotations.contains("Override") && annotations.getBoolean("Override")) {
+                    logger.info(">> is override");
+                    CtMethod superMethod = findSuperMethod(superClz, name);
+
+//                    logger.info(">> >> " + Arrays.toString(superMethod.getParameterTypes()));
+//                    logger.info(">> >> " + superMethod.getReturnType().getName());
+
+                    String superReturnType = superMethod.getReturnType().getName();
+                    CtClass[] superArgs = superMethod.getParameterTypes();
+                    String argsString = "";
+                    String jsFuncArgString = "";
+                    for (int k = 0; k < superArgs.length; k++) {
+                        argsString += superArgs[k].getSimpleName() + " a" + k;
+                        jsFuncArgString += "a" + k;
+                        if (k < superArgs.length - 1) {
+                            argsString += ",";
+                            jsFuncArgString += ",";
+                        }
+                    }
+
+                    String meth = "public " + superReturnType + " " + name + "(" + argsString + ") { ";
+                    if (jsFuncArgString.length() > 0) {
+                        meth += "Object[] args = new Object[]{" + jsFuncArgString + "};";
+                    } else {
+                        meth += "Object[] args = null;";
+                    }
+                    meth += "return (" + superReturnType + ") this.runJsFunc(\"" + name + "\", args);" + "}";
+//                    System.out.println(meth);
+                    CtMethod proxyMethod = CtNewMethod.make(
+                            meth,
+                            clz
+                    );
+                    proxyMethod.setModifiers(superMethod.getModifiers());
+                    clz.addMethod(proxyMethod);
+                } else {
+                    CtMethod proxyMethod = CtNewMethod.make(
+                            "public " + defaultReturn + " " + name + "(" + defaultArgs + ") { " +
+                                    "return runJsFunc(\"" + name + "\", args);" +
+                                    "}",
+                            clz
+                    );
+                    proxyMethod.setModifiers(proxyMethod.getModifiers() | Modifier.VARARGS);
+                    clz.addMethod(proxyMethod);
+                }
+            }
+
+            CtField jsMethods = new CtField(cp.get("[Ljava.lang.String;"), "__jsMethods", clz);
+            jsMethods.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
+            clz.addField(jsMethods, CtField.Initializer.byExpr("new String[]{" + methodNames + "}"));
 
             return clz.toClass();
         } catch (CannotCompileException e) {
@@ -43,5 +122,26 @@ public class ClassGenerator {
         }
 
         return null;
+    }
+
+    private static CtMethod findSuperMethod(CtClass clz, String name) {
+        logger.info("Finding method: " + name + " on " + clz.getName());
+        if (clz == null) {
+            return null;
+        }
+
+        CtMethod[] methods = clz.getDeclaredMethods();
+        for (int i = 0; i < methods.length; i++) {
+            CtMethod m = methods[i];
+            if (m.getName().equals(name)) {
+                return m;
+            }
+        }
+
+        try {
+            return findSuperMethod(clz.getSuperclass(), name);
+        } catch (NotFoundException e) {
+            return null;
+        }
     }
 }

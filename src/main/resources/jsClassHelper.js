@@ -1,4 +1,6 @@
- (function (root, factory) {
+Class = abitbol.Class;
+
+(function (root, factory) {
     if (typeof define === 'function' && define.amd) {
         // AMD. Register as an anonymous module.
         define([], factory);
@@ -64,7 +66,7 @@
 
 
   var addMethod = function(inst, name, method) {
-    print('adding method: ', name, typeof method, method);
+    print('adding method: ', name, ' ', typeof method, ' ', method);
     inst[name] = function() {
       print('running method: ', name);
       // print('> keys: ', Object.keys(this));
@@ -333,9 +335,45 @@
       superClz = getClass(superClzName);
     }
 
+    var jsMixins = getMixins(className);
     if (classInfo.publics) {
       print('Adding publics: ', JSON.stringify(classInfo.publics));
-      addProxies(classConstructor, classInfo.publics);
+      // Exclude proxies for any JS methods
+      // var javaPublics = classInfo.publics.slice();
+      // if (jsMixins) {
+      //   for (var k in jsMixins) {
+      //     var i = javaPublics.indexOf(k);
+      //     if (i >= 0) {
+      //       print('> Skipping public (defined in js): ', k);
+      //       javaPublics.splice(i, 1);
+      //     }
+      //   }
+      // }
+
+      var jsDefined = jsMixins || {};
+      var excludeMixins = function(target) {
+        var res = {};
+        for (var k in target) {
+          // if (k.indexOf('__') === 0) {
+          //   javaPublics[k] = classInfo.publics[k];
+          //   continue;
+          // }
+          print('> Checking: ', k);
+          if (jsDefined[k]) {
+            print('> Skipping public (defined in js): ', k);
+            continue;
+          }
+          res[k] = target[k];
+        }
+        return res;
+      };
+      var javaPublics = {
+        fields: excludeMixins(classInfo.publics.fields),
+        methods: excludeMixins(classInfo.publics.methods)
+      };
+
+      // addProxies(classConstructor, classInfo.publics);
+      addProxies(classConstructor, javaPublics);
     }
 
     if (classInfo.statics) {
@@ -349,13 +387,16 @@
     }
 
     // Add any original js mixins if they exist
-    var jsMixins = getMixins(className);
     if (jsMixins) {
       print('Adding JS mixins: ', Object.keys(jsMixins));
       Object.keys(jsMixins).forEach(function(k) {
         var v = jsMixins[k];
         var existing = classConstructor[k];
-        classConstructor[k] = funcSafeMerge(existing, v);
+        if (k.indexOf('__') === 0) {
+          classConstructor[k] = funcSafeMerge(existing, v);
+        } else {
+          classConstructor[k] = v;
+        }
       });
     }
 
@@ -366,12 +407,14 @@
     }
 
     print('Generating abitbol class: ', classConstructor.__name__, ' classConstructor: ', Object.keys(classConstructor));
+    // print('> TEST ', classConstructor.getSubtype);
     var clz;
     if (superClz) {
       print('> Using super.$extend for: "', superClz.$name, '" (', superClz.__javaClass, ')');
       clz = superClz.$extend(_INTERNAL_EXTEND, classConstructor);
     } else {
       print('> No super, running Class.$extend');
+      print(Object.keys(abitbol));
       clz = Class.$extend(classConstructor);
     }
 
@@ -386,8 +429,7 @@
 
           if (arguments[0] === _INTERNAL_EXTEND) {
             print('> Internal extend, running Class.$extend');
-            var args = Array.prototype.slice.call(arguments);
-            args.shift();
+            var args = Array.prototype.slice.call(arguments, 1);
             return Class.$extend.apply(this, args);
           }
 
@@ -417,22 +459,23 @@
           var methods = [];
           var fields = [];
 
-          // var keys = Object.keys(resultClz);
-          // for (var i in keys) {
-          //   var k = keys[i];
-          //   if (k.charAt(0) === '_') {
-          //     continue;
-          //   }
+          var keys = Object.keys(newClassConstructor);
+          for (var i in keys) {
+            var k = keys[i];
+            if (k.charAt(0) === '_') {
+              continue;
+            }
 
-          //   var v = resultClz[k];
-          //   var t = typeof(v);
-          //   if (t === 'function') {
-          //     methods.push({
-          //       type: t,
-          //       name: k
-          //     });
-          //   }
-          // }
+            var v = newClassConstructor[k];
+            var t = typeof(v);
+            if (t === 'function') {
+              methods.push({
+                type: t,
+                name: k,
+                annotations: abitbol.extractAnnotations(v)
+              });
+            }
+          }
 
           print('> Generating Java class');
           JavaGenerateClass(
@@ -472,9 +515,34 @@
   };
 
 
+  var executeInstanceMethod = function(javaInstance, methodName, args) {
+    print('Calling js instance method: ', javaInstance, ' ', methodName);
+    var inst = instanceMap[javaInstance];
+
+    if (!inst) {
+      print('WARNING: No instance registered for: ', javaInstance);
+      return;
+    }
+
+    var fn = inst[methodName];
+    if (!fn) {
+      print('WARNING: No function named: ', methodName);
+      return;
+    }
+
+    // var args = Array.prototype.slice.call(arguments, 2);
+    // return fn.apply(inst, args);
+    return fn.call(inst, args);
+  };
+
+
   return {
     getClass: getClass,
-    getBlankClassInfo: getBlankClassInfo
+    getBlankClassInfo: getBlankClassInfo,
+    executeInstanceMethod: executeInstanceMethod
   };
 
 }));
+
+
+executeInstanceMethod = ClassHelpers.executeInstanceMethod;

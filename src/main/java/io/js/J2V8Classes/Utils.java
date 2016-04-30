@@ -283,6 +283,43 @@ public class Utils {
         logger.info("> items still left: " + jsInstanceMap.size());
     }
 
+
+    public static V8Object toV8Object(V8 v8, Object o) {
+        V8Object res = new V8Object(v8);
+        if (o == null) {
+            res.addNull("v");
+            return res;
+        }
+
+        Class clz = o.getClass();
+        if (clz == Boolean.class) {
+            res.add("v", (boolean) o);
+        } else if (clz == Double.class) {
+            res.add("v", (double) o);
+        } else if (clz == Integer.class) {
+            res.add("v", (int) o);
+        } else if (clz == String.class) {
+            res.add("v", (String) o);
+        } else if (clz.isArray()) {
+            logger.info("> Array! " + clz);
+            Object[] oarr = toObjectArray(o);
+            V8Array arr = new V8Array(v8);
+            for (int i = 0; i < oarr.length; i++) {
+                arr.push(toV8Object(v8, oarr[i]));
+            }
+            res.add("v", arr);
+            arr.release();
+        } else if (o instanceof Object) {
+            logger.info("> Class! " + clz);
+            V8Object jsInst = Utils.getV8ObjectForObject(v8, o);
+            res.add("v", jsInst);
+        } else {
+            logger.warning("> Unknown type! " + clz);
+        }
+        return res;
+    }
+
+
     private static HashMap<Integer, Object> javaInstanceMap = new HashMap<Integer, Object>();
     private static HashMap<Integer, V8Object> jsInstanceMap = new HashMap<Integer, V8Object>();
 

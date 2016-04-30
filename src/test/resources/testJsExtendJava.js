@@ -37,3 +37,23 @@ var myBear = new Bear2('grizzly');
 //print('myBear.bear2func()= ', myBear.bear2Func());
 
 StaticAnimals.registerAnimal(myBear);
+
+
+var Bear3 = Bear.$extend({
+    __name__: 'Bear3',
+    __init__: function(subtype) {
+        this.$super(subtype);
+    },
+
+    getType: function() {
+        '@Override';
+        return 'qwer';
+    },
+
+    getSubtype: function() {
+        return 'asdf';
+    }
+});
+
+var myOtherBear = new Bear3('grizzly');
+StaticAnimals.registerAnimal(myOtherBear);
