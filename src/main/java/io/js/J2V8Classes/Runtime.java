@@ -339,7 +339,12 @@ public class Runtime {
 
                     Object v = parameters.get(0);
                     if (v.getClass() == V8Object.class) {
-                        return;
+                        V8Object jsObj = (V8Object) v;
+                        Object javaObj = getReceiverFromCallback(jsObj);
+                        if(javaObj == null){
+                            return;
+                        }
+                        v = javaObj;
                     }
 
                     f.set(fromRecv, v);
