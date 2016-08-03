@@ -142,7 +142,7 @@ public class Runtime {
         classInfo.add("__javaClass", clzName);
 
         Class superClz = clz.getSuperclass();
-        if (superClz != Object.class) {
+        if (superClz != Object.class && superClz != null) {
             classInfo.add("__javaSuperclass", Utils.getClassName(clz.getSuperclass()));
         }
     }
@@ -207,7 +207,7 @@ public class Runtime {
 
         if (!statics) {
             Class superClz = clz.getSuperclass();
-            if (superClz != Object.class) {
+            if (superClz != Object.class && superClz != null) {
                 logger.info("> Adding super object for: " + superClz.getName());
                 V8Object superData = runtime.executeObjectScript("ClassHelpers.getBlankClassInfo()");
                 superData.add("__javaClass", superClz.getCanonicalName());

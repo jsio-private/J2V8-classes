@@ -10,4 +10,6 @@ var myAnimal = new Animal('fish');
 var originalType = myAnimal.type;
 myAnimal.type = 'zebra';
 
+Animal.TESTY = myAnimal;
+
 //print('myAnimal.type now?! ', myAnimal.type);

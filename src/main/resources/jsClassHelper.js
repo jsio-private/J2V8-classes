@@ -269,7 +269,7 @@ Class = abitbol.Class;
       if (isDynamicClass(className)) {
         // Wait to call createInstance until we have js args for js -> java super
         print('WARNING: internalClassInit called with dynamic class ', className);
-        return;
+//        return;
       }
 
       var instData;
@@ -433,7 +433,7 @@ Class = abitbol.Class;
             return Class.$extend.apply(this, args);
           }
 
-          var superClass = this.$class.__javaClass;
+          var superClass = this.$class;
           if (!superClass) {
             print('> No superClass, running Class.$extend');
             return Class.$extend.apply(this, arguments);
@@ -445,13 +445,13 @@ Class = abitbol.Class;
           }
 
           var newClassConstructor = arguments[0];
-          var className = newClassConstructor.__name__;
+          var className = newClassConstructor .__name__;
           if (!className) {
             className = 'Dynamic_' + (_classUid++);
           }
 
           var javaClass = _DYNAMIC_PACKAGE + '.' + __runtimeName + '.' + className;
-          print('> parent.__javaClass= ', superClass);
+          print('> parent.__javaClass= ', superClass.__javaClass);
           print('> new javaClass: ', javaClass);
 
           registerMixins(javaClass, newClassConstructor);
@@ -480,7 +480,7 @@ Class = abitbol.Class;
           print('> Generating Java class');
           JavaGenerateClass(
             javaClass,
-            superClass,
+            superClass.__javaClass,
             // fields,
             methods
           );

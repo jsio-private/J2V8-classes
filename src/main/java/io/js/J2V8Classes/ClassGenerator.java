@@ -20,6 +20,11 @@ public class ClassGenerator {
             CtClass superClz = cp.getCtClass(superClzName);
             CtClass clz = cp.makeClass(canonicalName, superClz);
 
+            if (superClz.isInterface()) {
+                clz = cp.makeClass(canonicalName);
+                clz.addInterface(superClz);
+            }
+
             // Add matching constructors if the super class is not dynamic
             CtConstructor[] c = superClz.getConstructors();
             for (int i = 0; i < c.length; i++) {
@@ -89,13 +94,18 @@ public class ClassGenerator {
                     } else {
                         meth += "Object[] args = null;";
                     }
-                    meth += "return (" + superReturnType + ") this.runJsFunc(\"" + name + "\", args);" + "}";
-//                    System.out.println(meth);
+                    if (superReturnType.equals("void")) {
+                        meth += "this.runJsFunc(\"" + name + "\", args);" + "}";
+                    } else {
+                        meth += "return (" + superReturnType + ") this.runJsFunc(\"" + name + "\", args);" + "}";
+                    }
                     CtMethod proxyMethod = CtNewMethod.make(
                             meth,
                             clz
                     );
-                    proxyMethod.setModifiers(superMethod.getModifiers());
+                    if (!superClz.isInterface()) {
+                        proxyMethod.setModifiers(superMethod.getModifiers());
+                    }
                     clz.addMethod(proxyMethod);
                 } else {
                     CtMethod proxyMethod = CtNewMethod.make(
