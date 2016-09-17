@@ -259,6 +259,7 @@ public class Runtime {
                         return new V8Object(runtime);
                     }
 
+                    inferredMethod.setAccessible(true);
                     Object v = ((Method) inferredMethod).invoke(fromRecv, Utils.matchExecutableParams(inferredMethod, args));
                     return Utils.toV8Object(runtime, v);
                 } catch (IllegalAccessException e) {

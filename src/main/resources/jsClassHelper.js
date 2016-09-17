@@ -197,6 +197,28 @@ Class = abitbol.Class;
   };
 
 
+  var addJavaFieldsToObj = function(obj, fromClass) {
+    if (!fromClass) {
+      fromClass = obj.__javaClass;
+    }
+    if (!obj.__javaInstance) {
+      print('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
+      return;
+    }
+
+    print('addJavaFieldsToObj: from ', fromClass, ' to ', obj.__javaInstance);
+    var classInfo = getClassInfo(fromClass);
+    var superClass = classInfo.__javaSuperclass;
+    if (superClass) {
+      print('addJavaFieldsToObj: add superclazz ', superClass);
+      addJavaFieldsToObj(obj, superClass);
+    }
+
+    print('addJavaFieldsToObj: Adding proxies for ', fromClass);
+    addProxies(obj, classInfo.publics);
+  };
+
+
   var addJavaFields = function(fromClass) {
     if (!this.__javaInstance) {
       print('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
@@ -538,6 +560,7 @@ Class = abitbol.Class;
 
   return {
     getClass: getClass,
+    addJavaFieldsToObj: addJavaFieldsToObj,
     getBlankClassInfo: getBlankClassInfo,
     executeInstanceMethod: executeInstanceMethod
   };
