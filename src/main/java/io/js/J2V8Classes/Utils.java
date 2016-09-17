@@ -345,6 +345,8 @@ public class Utils {
             }
             res.add("v", arr);
             arr.release();
+        } else if (o instanceof V8Value) {
+            res.add("v", (V8Value) o);
         } else if (o instanceof Object) {
             logger.info("> Class! " + clz);
             V8Object jsInst = Utils.getV8ObjectForObject(v8, o);
