@@ -78,7 +78,7 @@ public class Utils {
 //                v8o.release();
             } else if (o instanceof V8Object) {
                 V8Object v8o = (V8Object) o;
-                if (v8o.contains("__javaInstance")) {
+                if (!v8o.isUndefined() && v8o.contains("__javaInstance")) {
                     int instHash = v8o.getInteger("__javaInstance");
                     Object inst = getInstance(instHash);
                     if (inst == null) {
@@ -90,13 +90,15 @@ public class Utils {
                 }
             }
 
-            Class resClz = res[idx].getClass();
-            logger.info("resClz: " + i + ": " + resClz.getName());
-            if (hasUnanimousClass) {
-                if (lowestCommonClass == null) {
-                    lowestCommonClass = resClz;
-                } else {
-                    lowestCommonClass = lowestCommonClass(lowestCommonClass, resClz);
+            if (res[idx] != null) {
+                Class resClz = res[idx].getClass();
+                logger.info("resClz: " + i + ": " + resClz.getName());
+                if (hasUnanimousClass) {
+                    if (lowestCommonClass == null) {
+                        lowestCommonClass = resClz;
+                    } else {
+                        lowestCommonClass = lowestCommonClass(lowestCommonClass, resClz);
+                    }
                 }
             }
         }
@@ -159,6 +161,11 @@ public class Utils {
         for (int i = 0; i < params.length; i++) {
             Class need = excParamTypes[i];
             Class got = params[i].getClass();
+
+            if (Boolean.class.equals(need) || boolean.class.equals(need)) {
+                res[i] = ((Boolean) params[i]).booleanValue();
+                continue;
+            }
 
             if (isNumber(need)) {
                 if (int.class.equals(need)) {
