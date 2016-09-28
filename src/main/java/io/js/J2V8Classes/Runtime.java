@@ -161,7 +161,7 @@ public class Runtime {
         );
 
         if (inferredMethod == null) {
-            logger.warning("> Could not find constructor");
+            logger.warning("> Could not find constructor for args " + Arrays.toString(parameters));
             return null;
         }
 
@@ -292,6 +292,7 @@ public class Runtime {
             logger.warning("Could not find receiving Object for callback!");
             return new V8Object(runtime);
         }
+        f.setAccessible(true);
         Object v = f.get(fromRecv);
         return Utils.toV8Object(runtime, v);
     }
