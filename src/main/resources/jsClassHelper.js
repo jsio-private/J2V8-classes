@@ -25,7 +25,7 @@ Class = abitbol.Class;
 
 
   var handleIncommingGet = function(res) {
-    // print('handleIncommingGet: ', Object.keys(res));
+    // log('handleIncommingGet: ', Object.keys(res));
     if (!res) {
       return undefined;
     }
@@ -40,16 +40,16 @@ Class = abitbol.Class;
     // if (res.__javaClass.lastIndexOf('[]') == res.__javaClass.length - 2) {
     // }
     if (Array.isArray(res)) {
-      print('handleIncommingGet: array, ensuring values are backed by classes if needed ', res.length);
+      log('handleIncommingGet: array, ensuring values are backed by classes if needed ', res.length);
       for (var i = 0, j = res.length; i < j; i++) {
         res[i] = handleIncommingGet(res[i]);
       }
     }
     else if (res.__javaInstance !== undefined) {
-      print('handleIncommingGet: class instance: (', res.__javaClass, ':', res.__javaInstance, ')');
+      log('handleIncommingGet: class instance: (', res.__javaClass, ':', res.__javaInstance, ')');
       var existingInstance = instanceMap[res.__javaInstance];
       if (existingInstance) {
-        print('handleIncommingGet: already exists');
+        log('handleIncommingGet: already exists');
         return existingInstance;
       }
       if (isInitializing(res.__javaClass)) {
@@ -66,19 +66,19 @@ Class = abitbol.Class;
 
 
   var addMethod = function(inst, name, method) {
-    print('adding method: ', name, ' ', typeof method, ' ', method);
+    log('adding method: ', name, ' ', typeof method, ' ', method);
     inst[name] = function() {
-      print('running method: ', name);
-      // print('> keys: ', Object.keys(this));
+      log('running method: ', name);
+      // log('> keys: ', Object.keys(this));
       var javaRes = method.apply(this, arguments);
       return handleIncommingGet(javaRes);
     };
   };
 
   var addField = function(inst, name, get, set) {
-    print('adding field: ', name);
+    log('adding field: ', name);
     if (!get || !set) {
-      print('WARNING: fields must have both a getter and a setter');
+      log('WARNING: fields must have both a getter and a setter');
       return;
     }
 
@@ -86,12 +86,12 @@ Class = abitbol.Class;
       enumerable: true,
       // configurable: true,
       get: function() {
-        print('getting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
+        log('getting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
         return handleIncommingGet(get.call(this));
       },
       // get: get,
       set: function(v) {
-        print('setting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
+        log('setting(op): ', name, ' (', this.__javaInstance || this.__javaClass, ')');
         set.call(this, v);
       }
     });
@@ -141,7 +141,7 @@ Class = abitbol.Class;
 
   var registerMixins = function(className, mixins) {
     if (_classMixins[className]) {
-      print('WARNING: Mixin collision for ', className);
+      log('WARNING: Mixin collision for ', className);
     }
     _classMixins[className] = mixins;
   };
@@ -162,12 +162,12 @@ Class = abitbol.Class;
     var origT = typeof(origObj);
     var newT = typeof(newObj);
     if (origT !== newT) {
-      print('WARNING: Cannot merge, mismatch types: ', origT, ' !== ', newT);
+      log('WARNING: Cannot merge, mismatch types: ', origT, ' !== ', newT);
       return origT;
     }
     if (origT === 'function') {
       return function() {
-        print('running merged function: ', this.$class.$name, ' ', Object.keys(this));
+        log('running merged function: ', this.$class.$name, ' ', Object.keys(this));
         origObj.apply(this, arguments);
         return newObj.apply(this, arguments);
       };
@@ -192,7 +192,7 @@ Class = abitbol.Class;
     // if (origT === 'number') {
     //   return newObj;
     // }
-    // print('WARNING: Cannot merge, unknown type ', origT);
+    // log('WARNING: Cannot merge, unknown type ', origT);
     return newObj;
   };
 
@@ -202,38 +202,38 @@ Class = abitbol.Class;
       fromClass = obj.__javaClass;
     }
     if (!obj.__javaInstance) {
-      print('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
+      log('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
       return;
     }
 
-    print('addJavaFieldsToObj: from ', fromClass, ' to ', obj.__javaInstance);
+    log('addJavaFieldsToObj: from ', fromClass, ' to ', obj.__javaInstance);
     var classInfo = getClassInfo(fromClass);
     var superClass = classInfo.__javaSuperclass;
     if (superClass) {
-      print('addJavaFieldsToObj: add superclazz ', superClass);
+      log('addJavaFieldsToObj: add superclazz ', superClass);
       addJavaFieldsToObj(obj, superClass);
     }
 
-    print('addJavaFieldsToObj: Adding proxies for ', fromClass);
+    log('addJavaFieldsToObj: Adding proxies for ', fromClass);
     addProxies(obj, classInfo.publics);
   };
 
 
   var addJavaFields = function(fromClass) {
     if (!this.__javaInstance) {
-      print('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
+      log('WARNING: Trying to addJavaFields from ', fromClass, ' to an instance not backed by java');
       return;
     }
 
-    print('addJavaFields: from ', fromClass, ' to ', this.__javaInstance);
+    log('addJavaFields: from ', fromClass, ' to ', this.__javaInstance);
     var classInfo = getClassInfo(fromClass);
     var superClass = classInfo.__javaSuperclass;
     if (superClass) {
       addJavaFields.call(this, superClass);
     }
 
-    print('addJavaFields: Adding proxies for ', fromClass);
-    // print('TEST: ', Object.keys(classInfo));
+    log('addJavaFields: Adding proxies for ', fromClass);
+    // log('TEST: ', Object.keys(classInfo));
     addProxies(this, classInfo.publics, { methods: false });
   };
 
@@ -270,44 +270,44 @@ Class = abitbol.Class;
     var existing = classMap[className];
     if (existing) {
       if (isInitializing(className)) {
-        print('WARNING: Calling getClass() from inside getClass() stack (class is already initializing)');
+        log('WARNING: Calling getClass() from inside getClass() stack (class is already initializing)');
         return null;
       }
       return existing;
     }
     classMap[className] = _CLASS_INITIALIZING;
-    print('getting class data for: ', className);
+    log('getting class data for: ', className);
     var classInfo = getClassInfo(className);
 
     if (!classInfo.__javaClass) {
-      print('WARNING: Class not found: ', className);
+      log('WARNING: Class not found: ', className);
       return null;
     }
 
     var internalClassInit = function() {
-      print('Running internalClassInit for ', className);
+      log('Running internalClassInit for ', className);
       var instChildClass = this.$class.__javaClass;
 
       if (isDynamicClass(className)) {
         // Wait to call createInstance until we have js args for js -> java super
-        print('WARNING: internalClassInit called with dynamic class ', className);
+        log('WARNING: internalClassInit called with dynamic class ', className);
 //        return;
       }
 
       var instData;
       var isSuper = arguments[0] === _IS_SUPER;
       if (isSuper || arguments[0] === _FROM_JAVA) {
-        print('adopting java instance: ', className);
+        log('adopting java instance: ', className);
         instData = arguments[1];
       } else {
-        print('creating new instance: ', instChildClass, ' (non dynamic super ', className, ')');
+        log('creating new instance: ', instChildClass, ' (non dynamic super ', className, ')');
         var args = Array.prototype.slice.call(arguments);
         args.unshift(instChildClass);
-        print('> Instance args: ', JSON.stringify(args));
+        log('> Instance args: ', JSON.stringify(args));
         instData = JavaCreateInstance.apply(this, args);
 
         if (!instData) {
-          print('WARNING: instData not valid... JavaCreateInstance must have failed');
+          log('WARNING: instData not valid... JavaCreateInstance must have failed');
           throw new Error('JavaCreateInstance failed');
         }
       }
@@ -320,17 +320,17 @@ Class = abitbol.Class;
 
 
       if (!instData.__javaInstance) {
-        print('WARNING: No instData.__javaInstance');
+        log('WARNING: No instData.__javaInstance');
       } else {
         this.__javaInstance = instData.__javaInstance;
-        print('(inst: ' + instChildClass + ' : ' + this.__javaInstance + ')');
+        log('(inst: ' + instChildClass + ' : ' + this.__javaInstance + ')');
       }
 
       var existing = instanceMap[this.__javaInstance];
       if (!isSuper) {
         if (instanceMap[this.__javaInstance]) {
           // TODO: this is fired for super classes
-          print('WARNING: instanceMap collision. Instance already in map: ' + existing.$class.__javaClass + ':' + existing.__javaInstance);
+          log('WARNING: instanceMap collision. Instance already in map: ' + existing.$class.__javaClass + ':' + existing.__javaInstance);
         } else {
           instanceMap[this.__javaInstance] = this;
         }
@@ -353,20 +353,20 @@ Class = abitbol.Class;
     var superClz = null;
     var superClzName = classInfo.__javaSuperclass;
     if (superClzName && superClzName !== 'java.lang.Object') {
-      print('Getting super (', className, ' extends ', superClzName, ')');
+      log('Getting super (', className, ' extends ', superClzName, ')');
       superClz = getClass(superClzName);
     }
 
     var jsMixins = getMixins(className);
     if (classInfo.publics) {
-      print('Adding publics: ', JSON.stringify(classInfo.publics));
+      log('Adding publics: ', JSON.stringify(classInfo.publics));
       // Exclude proxies for any JS methods
       // var javaPublics = classInfo.publics.slice();
       // if (jsMixins) {
       //   for (var k in jsMixins) {
       //     var i = javaPublics.indexOf(k);
       //     if (i >= 0) {
-      //       print('> Skipping public (defined in js): ', k);
+      //       log('> Skipping public (defined in js): ', k);
       //       javaPublics.splice(i, 1);
       //     }
       //   }
@@ -380,9 +380,9 @@ Class = abitbol.Class;
           //   javaPublics[k] = classInfo.publics[k];
           //   continue;
           // }
-          print('> Checking: ', k);
+          log('> Checking: ', k);
           if (jsDefined[k]) {
-            print('> Skipping public (defined in js): ', k);
+            log('> Skipping public (defined in js): ', k);
             continue;
           }
           res[k] = target[k];
@@ -399,7 +399,7 @@ Class = abitbol.Class;
     }
 
     if (classInfo.statics) {
-      print('Adding statics: ', JSON.stringify(classInfo.statics));
+      log('Adding statics: ', JSON.stringify(classInfo.statics));
       classConstructor.__classvars__ = addProxies(
         {
           __javaClass: classInfo.__javaClass
@@ -410,7 +410,7 @@ Class = abitbol.Class;
 
     // Add any original js mixins if they exist
     if (jsMixins) {
-      print('Adding JS mixins: ', Object.keys(jsMixins));
+      log('Adding JS mixins: ', Object.keys(jsMixins));
       Object.keys(jsMixins).forEach(function(k) {
         var v = jsMixins[k];
         var existing = classConstructor[k];
@@ -424,19 +424,19 @@ Class = abitbol.Class;
 
     // Ensure that there is an __init__
     if (!classConstructor.__init__) {
-      print('No user defined init, using internalClassInit');
+      log('No user defined init, using internalClassInit');
       classConstructor.__init__ = internalClassInit;
     }
 
-    print('Generating abitbol class: ', classConstructor.__name__, ' classConstructor: ', Object.keys(classConstructor));
-    // print('> TEST ', classConstructor.getSubtype);
+    log('Generating abitbol class: ', classConstructor.__name__, ' classConstructor: ', Object.keys(classConstructor));
+    // log('> TEST ', classConstructor.getSubtype);
     var clz;
     if (superClz) {
-      print('> Using super.$extend for: "', superClz.$name, '" (', superClz.__javaClass, ')');
+      log('> Using super.$extend for: "', superClz.$name, '" (', superClz.__javaClass, ')');
       clz = superClz.$extend(_INTERNAL_EXTEND, classConstructor);
     } else {
-      print('> No super, running Class.$extend');
-      print(Object.keys(abitbol));
+      log('> No super, running Class.$extend');
+      log(Object.keys(abitbol));
       clz = Class.$extend(classConstructor);
     }
 
@@ -447,22 +447,22 @@ Class = abitbol.Class;
         enumerable: false,
         configurable: true,
         value: function() {
-          print('Custom $extend');
+          log('Custom $extend');
 
           if (arguments[0] === _INTERNAL_EXTEND) {
-            print('> Internal extend, running Class.$extend');
+            log('> Internal extend, running Class.$extend');
             var args = Array.prototype.slice.call(arguments, 1);
             return Class.$extend.apply(this, args);
           }
 
           var superClass = this.$class;
           if (!superClass) {
-            print('> No superClass, running Class.$extend');
+            log('> No superClass, running Class.$extend');
             return Class.$extend.apply(this, arguments);
           }
 
           if (_classUid >= _MAX_CUSTOM_CLASS_COUNT) {
-            print('WARNING: max custom class count hit, falling back to js class extend');
+            log('WARNING: max custom class count hit, falling back to js class extend');
             return Class.$extend.apply(this, arguments);
           }
 
@@ -473,8 +473,8 @@ Class = abitbol.Class;
           }
 
           var javaClass = _DYNAMIC_PACKAGE + '.' + __runtimeName + '.' + className;
-          print('> parent.__javaClass= ', superClass.__javaClass);
-          print('> new javaClass: ', javaClass);
+          log('> parent.__javaClass= ', superClass.__javaClass);
+          log('> new javaClass: ', javaClass);
 
           registerMixins(javaClass, newClassConstructor);
 
@@ -499,7 +499,7 @@ Class = abitbol.Class;
             }
           }
 
-          print('> Generating Java class');
+          log('> Generating Java class');
           JavaGenerateClass(
             javaClass,
             superClass.__javaClass,
@@ -507,12 +507,12 @@ Class = abitbol.Class;
             methods
           );
 
-          print('> Creating JS class');
+          log('> Creating JS class');
           return getClass(javaClass);
         }
     });
 
-    print('Class info load complete: ', className);
+    log('Class info load complete: ', className);
     classMap[className] = clz;
 
     return clz;
@@ -538,17 +538,17 @@ Class = abitbol.Class;
 
 
   var executeInstanceMethod = function(javaInstance, methodName, args) {
-    print('Calling js instance method: ', javaInstance, ' ', methodName);
+    log('Calling js instance method: ', javaInstance, ' ', methodName);
     var inst = instanceMap[javaInstance];
 
     if (!inst) {
-      print('WARNING: No instance registered for: ', javaInstance);
+      log('WARNING: No instance registered for: ', javaInstance);
       return;
     }
 
     var fn = inst[methodName];
     if (!fn) {
-      print('WARNING: No function named: ', methodName);
+      log('WARNING: No function named: ', methodName);
       return;
     }
 
