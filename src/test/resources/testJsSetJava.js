@@ -12,6 +12,8 @@ TestJavaSetting.customRunnable = new (Runnable.$extend({
 	}
 }));
 
+TestJavaSetting.setV8Object({"name":"custom_object", "type":"not_babel_fish"});
+
 //print("customRunnable : ", Object.keys(customRunnable), "SDFSFSDF : ", SDFSFSDF);
 
 //print('myAnimal.type now?! ', myAnimal.type);
