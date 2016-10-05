@@ -25,7 +25,7 @@ Class = abitbol.Class;
 
 
   var handleIncommingGet = function(res) {
-    // log('handleIncommingGet: ', Object.keys(res));
+    log('handleIncommingGet: ', Object.keys(res));
     if (!res) {
       return undefined;
     }
@@ -33,7 +33,7 @@ Class = abitbol.Class;
       res = res.v;
     }
     if (!res) {
-      return null;
+      return undefined;
     }
 
     // Check for arrays

@@ -227,7 +227,7 @@ public class Utils {
     }
 
     public static boolean isNumber(Class clz) {
-        return clz == int.class || clz == float.class || clz == double.class || Number.class.isAssignableFrom(clz);
+        return clz == int.class || clz == float.class || clz == double.class || clz == long.class || Number.class.isAssignableFrom(clz);
     }
 
     /** Note: should only be used internally, not a true primative match */
