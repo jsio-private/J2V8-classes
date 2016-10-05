@@ -343,6 +343,8 @@ public class Utils {
             res.add("v", (int) o);
         } else if (clz == String.class) {
             res.add("v", (String) o);
+        } else if (clz == CharSequence.class) {
+            res.add("v", o.toString());
         } else if (clz.isArray()) {
             logger.info("> Array! " + clz);
             Object[] oarr = toObjectArray(o);
