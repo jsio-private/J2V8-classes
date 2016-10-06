@@ -221,6 +221,11 @@ public class Utils {
                 }
             }
 
+            if (!need.isPrimitive() && need != V8Object.class && params[i] instanceof V8Object && ((V8Object)params[i]).isUndefined()) {
+                res[i] = null;
+                continue;
+            }
+
             res[i] = need.cast(params[i]);
         }
         return res;
@@ -271,6 +276,7 @@ public class Utils {
             for (int j = 0; j < paramTypes.length; j++) {
                 Class need = excParamTypes[j];
                 Class got = paramTypes[j];
+
                 if (need.isAssignableFrom(got) || need.equals(got)) {
                     continue;
                 }
@@ -293,6 +299,10 @@ public class Utils {
 
                 // Soft match numbers
                 if (isNumber(need) && isNumber(got)) {
+                    continue;
+                }
+
+                if (!need.isPrimitive() && need != V8Object.class && params[j] instanceof V8Object && ((V8Object)params[j]).isUndefined()) {
                     continue;
                 }
 
