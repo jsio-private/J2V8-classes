@@ -10,8 +10,7 @@ import org.junit.Test;
 public class TestJavaInheritance {
     @Test
     public void testJavaInheritance() {
-        Runtime runtime = new Runtime("testJavaInheritance");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJavaInheritance");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaInheritance.js"));
 
         // Check original functionality
@@ -22,6 +21,6 @@ public class TestJavaInheritance {
         Assert.assertEquals("fishy mcgee", v8.executeStringScript("myAnimal.name"));
         Assert.assertEquals("fishy mcgee", v8.executeStringScript("myAnimal.getName()"));
 
-        runtime.release();
+        V8JavaClasses.release("testJavaInheritance");
     }
 }

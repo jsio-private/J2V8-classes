@@ -17,8 +17,7 @@ public class TestJavaSetting {
 
     @Test
     public void testJavaInstance() {
-        Runtime runtime = new Runtime("testJavaSetting");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJavaSetting");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsSetJava.js"));
 
         Assert.assertEquals("yes", customString);
@@ -30,7 +29,7 @@ public class TestJavaSetting {
 
         Assert.assertEquals("runnable worked", customString);
 
-        runtime.release();
+        V8JavaClasses.release("testJavaSetting");
     }
 
     public static void setV8Object(V8Object obj) {

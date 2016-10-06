@@ -10,8 +10,7 @@ import org.junit.Test;
 public class TestStatics {
     @Test
     public void testJavaStatics() {
-        Runtime runtime = new Runtime("testJavaStatics");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJavaStatics");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testStatics.js"));
 
         // Check field
@@ -31,6 +30,6 @@ public class TestStatics {
         // Test function inference
         Assert.assertEquals(1.0, v8.executeDoubleScript("StaticAnimals.Floor(1.3)"), 0.1);
 
-        runtime.release();
+        V8JavaClasses.release("testJavaStatics");
     }
 }

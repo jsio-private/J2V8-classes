@@ -10,8 +10,7 @@ import org.junit.Test;
 public class TestJavaInstance {
     @Test
     public void testJavaInstance() {
-        Runtime runtime = new Runtime("testJavaInstance");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJavaInstance");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testCustomInstance.js"));
 
         // Check default constructor
@@ -24,6 +23,6 @@ public class TestJavaInstance {
         // Check function call
         Assert.assertEquals("zebra", v8.executeStringScript("myAnimal.getType()"));
 
-        runtime.release();
+        V8JavaClasses.release("testJavaInstance");
     }
 }

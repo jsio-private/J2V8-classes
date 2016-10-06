@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 public class ClassGenerator {
     private static Logger logger = Logger.getLogger("ClassGenerator");
 
-    public static Class createClass(Runtime runtime, String canonicalName, String superClzName, V8Array methods) {
+    public static Class createClass(String runtimeName, String canonicalName, String superClzName, V8Array methods) {
         logger.info("Generating class: " + canonicalName + " extends " + superClzName);
         ClassPool cp = ClassPool.getDefault();
 
@@ -32,9 +32,9 @@ public class ClassGenerator {
                 clz.addConstructor(proxyConstructor);
             }
 
-            CtField runtimeName = new CtField(cp.get("java.lang.String"), "runtimeName", clz);
-            runtimeName.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
-            clz.addField(runtimeName, CtField.Initializer.constant(runtime.getName()));
+            CtField runtimeNameField = new CtField(cp.get("java.lang.String"), "runtimeName", clz);
+            runtimeNameField.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
+            clz.addField(runtimeNameField, CtField.Initializer.constant(runtimeName));
 
 
             cp.importPackage("com.eclipsesource.v8");
@@ -42,7 +42,7 @@ public class ClassGenerator {
 
             CtMethod runJsFunc = CtNewMethod.make(
                     "private Object runJsFunc(String name, Object[] args) { " +
-                        "V8 v8 = io.js.J2V8Classes.Runtime.getRuntime(runtimeName).getRuntime();" +
+                        "V8 v8 = io.js.J2V8Classes.V8JavaClasses.getRuntime(runtimeName);" +
                         "V8Array v8Args = new V8Array(v8);" +
                         "v8Args.push(hashCode());" +
                         "v8Args.push(name);" +

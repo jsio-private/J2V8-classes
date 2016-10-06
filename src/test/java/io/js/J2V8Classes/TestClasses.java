@@ -10,14 +10,13 @@ import org.junit.Test;
 public class TestClasses {
     @Test
     public void testClasses() {
-        Runtime runtime = new Runtime("testClasses");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testClasses");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testClasses.js"));
 
         Assert.assertEquals(v8.executeStringScript("person.name"), "joe");
         Assert.assertEquals(v8.executeStringScript("jackie.name"), "jackie");
         Assert.assertEquals(v8.executeBooleanScript("jackie.isAwesome()"), true);
 
-        runtime.release();
+        V8JavaClasses.release("testClasses");
     }
 }

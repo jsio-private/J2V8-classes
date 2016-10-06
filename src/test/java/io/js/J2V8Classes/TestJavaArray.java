@@ -12,8 +12,7 @@ import java.util.Arrays;
 public class TestJavaArray {
 	@Test
 	public void testJavaArrays() {
-		Runtime runtime = new Runtime("testJavaArray");
-		V8 v8 = runtime.getRuntime();
+		V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJavaArray");
 		v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJavaArrays.js"));
 
 		String[] res1 = (String[]) Utils.v8arrayToObjectArray(v8.executeArrayScript("StaticAnimals.SomeFuncArray(['val1', 'val2'])"));
@@ -38,6 +37,6 @@ public class TestJavaArray {
 //		listExample.add("val3");
 //		Assert.assertEquals(listExample.toString(), runtime.executeStringScript("StaticAnimals.SomeFuncWithArrayList(['val1', 'val2', 'val3']);"));
 
-		runtime.release();
+		V8JavaClasses.release("testJavaArray");
 	}
 }

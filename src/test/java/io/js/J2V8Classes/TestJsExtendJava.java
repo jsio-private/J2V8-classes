@@ -10,8 +10,7 @@ import org.junit.Test;
 public class TestJsExtendJava {
     @Test
     public void testJsExtendJava() {
-        Runtime runtime = new Runtime("testJsExtendJava");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJsExtendJava");
 
 //        Object res = v8.executeFunction("executeInstanceMethod", new V8Array(v8));
 //        System.out.println("RES: " + res);
@@ -33,13 +32,12 @@ public class TestJsExtendJava {
         Assert.assertEquals(true, bear instanceof Animal);
         Assert.assertEquals("bear", bear.getType());
 
-        runtime.release();
+        V8JavaClasses.release("testJsExtendJava");
     }
 
     @Test
     public void testJsExtendJava_methodOverride() {
-        Runtime runtime = new Runtime("testJsExtendJava_methodOverride");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testJsExtendJava_methodOverride");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testJsExtendJava.js"));
 
         // Check js/js override
@@ -53,6 +51,6 @@ public class TestJsExtendJava {
         Animal myOtherBear = StaticAnimals.findAnimal("qwer");
         Assert.assertNotNull(myOtherBear);
 
-        runtime.release();
+        V8JavaClasses.release("testJsExtendJava_methodOverride");
     }
 }

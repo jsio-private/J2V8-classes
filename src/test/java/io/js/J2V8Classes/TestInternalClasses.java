@@ -10,8 +10,7 @@ import org.junit.Test;
 public class TestInternalClasses {
     @Test
     public void testClasses() {
-        Runtime runtime = new Runtime("testClasses");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testClasses");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testInternalClasses.js"));
 
         Assert.assertEquals(
@@ -19,6 +18,6 @@ public class TestInternalClasses {
                 v8.executeStringScript("c1Inst.$class.__javaClass")
         );
 
-        runtime.release();
+        V8JavaClasses.release("testClasses");
     }
 }

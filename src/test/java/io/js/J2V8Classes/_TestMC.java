@@ -8,10 +8,9 @@ import com.eclipsesource.v8.V8;
 public class _TestMC {
 //    @Test
     public void testMC() {
-        Runtime runtime = new Runtime("testMC");
-        V8 v8 = runtime.getRuntime();
+        V8 v8 = V8JavaClasses.injectClassHelper(V8.createV8Runtime(), "testMC");
         v8.executeVoidScript(Utils.getScriptSource(this.getClass().getClassLoader(), "testMC.js"));
 
-        runtime.release();
+        V8JavaClasses.release("testMC");
     }
 }
