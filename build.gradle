@@ -45,7 +45,7 @@ dependencies {
     // The production code uses the SLF4J logging API at compile time
 //    compile 'org.slf4j:slf4j-api:1.7.14'
 
-    compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:3.1.6'
+    compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.4.0'
     compile 'commons-io:commons-io:2.4'
     compile 'org.apache.commons:commons-lang3:3.3.2'
     compile 'org.javassist:javassist:3.20.0-GA'
