@@ -26,15 +26,10 @@ Class = abitbol.Class;
 
   var handleIncommingGet = function(res) {
     log('handleIncommingGet: ', Object.keys(res));
-    if (!res) {
+    if (!res || !res.hasOwnProperty('v') || !res.v) {
       return undefined;
     }
-    if (res.hasOwnProperty('v')) {
-      res = res.v;
-    }
-    if (!res) {
-      return undefined;
-    }
+    res = res.v;
 
     // Check for arrays
     // if (res.__javaClass.lastIndexOf('[]') == res.__javaClass.length - 2) {
