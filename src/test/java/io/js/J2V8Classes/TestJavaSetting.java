@@ -12,7 +12,7 @@ public class TestJavaSetting {
 
     public static String customString = "no";
     public static Animal customAnimal = null;
-    public static Runnable customRunnable = null;
+    public static RunnableWithArg customRunnable = null;
     public static V8Object v8obj = null;
 
     @Test
@@ -25,9 +25,9 @@ public class TestJavaSetting {
         Assert.assertEquals("not_babel_fish", v8obj.getString("type"));
 
         Assert.assertNotNull(customRunnable);
-        customRunnable.run();
+        customRunnable.run(new Animal("table"));
 
-        Assert.assertEquals("runnable worked", customString);
+        Assert.assertEquals("table", customAnimal.getType());
 
         V8JavaClasses.release("testJavaSetting");
     }

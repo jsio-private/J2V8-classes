@@ -23,9 +23,7 @@ Class = abitbol.Class;
   var classMap = {};
   var instanceMap = {};
 
-
-  var handleIncommingGet = function(res) {
-    log('handleIncommingGet: ', Object.keys(res));
+  var fixValueObject = function(res) {
     if (!res || !res.hasOwnProperty('v') || !res.v) {
       return undefined;
     }
@@ -57,6 +55,11 @@ Class = abitbol.Class;
     }
 
     return res;
+  };
+
+  var handleIncommingGet = function(res) {
+    log('handleIncommingGet: ', Object.keys(res));
+    return fixValueObject(res);
   };
 
 
@@ -547,9 +550,15 @@ Class = abitbol.Class;
       return;
     }
 
+	args = args.v;
+    log('executeInstanceMethod: Fixing args');
+    for (var key in args) {
+      args[key] = fixValueObject(args[key]);
+    }
+
     // var args = Array.prototype.slice.call(arguments, 2);
     // return fn.apply(inst, args);
-    return fn.call(inst, args);
+    return fn.apply(inst, args);
   };
 
 

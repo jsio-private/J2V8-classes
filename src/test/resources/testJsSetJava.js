@@ -1,14 +1,14 @@
 var Animal = ClassHelpers.getClass('io.js.J2V8Classes.Animal');
 var TestJavaSetting = ClassHelpers.getClass('io.js.J2V8Classes.TestJavaSetting');
-var Runnable = ClassHelpers.getClass('java.lang.Runnable');
+var RunnableWithArg = ClassHelpers.getClass('io.js.J2V8Classes.RunnableWithArg');
 
 TestJavaSetting.customString = "yes";
 TestJavaSetting.customAnimal = new Animal('babel_fish');
-TestJavaSetting.customRunnable = new (Runnable.$extend({
+TestJavaSetting.customRunnable = new (RunnableWithArg.$extend({
 	__name__: 'CustomRunnable',
-	run: function() {
+	run: function(animal) {
 		'@Override';
-		TestJavaSetting.customString = "runnable worked";
+		TestJavaSetting.customAnimal = new Animal(animal.getType());
 	}
 }));
 
