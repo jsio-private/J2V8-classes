@@ -1,5 +1,6 @@
 package io.js.J2V8Classes;
 
+import com.eclipsesource.v8.V8;
 import com.eclipsesource.v8.V8Array;
 import com.eclipsesource.v8.V8Object;
 import javassist.*;
@@ -36,20 +37,18 @@ public class ClassGenerator {
             runtimeNameField.setModifiers(Modifier.PUBLIC | Modifier.STATIC | Modifier.FINAL);
             clz.addField(runtimeNameField, CtField.Initializer.constant(runtimeName));
 
-
+            ClassPool.getDefault().insertClassPath(new ClassClassPath(V8.class));
             cp.importPackage("com.eclipsesource.v8");
             cp.importPackage("io.js.J2V8Classes");
 
             CtMethod runJsFunc = CtNewMethod.make(
                     "private Object runJsFunc(String name, Object[] args) { " +
-                        "V8 v8 = io.js.J2V8Classes.V8JavaClasses.getRuntime(runtimeName);" +
-                        "V8Array v8Args = new V8Array(v8);" +
+                        "com.eclipsesource.v8.V8 v8 = io.js.J2V8Classes.V8JavaClasses.getRuntime(runtimeName);" +
+                        "com.eclipsesource.v8.V8Array v8Args = new com.eclipsesource.v8.V8Array(v8);" +
                         "v8Args.push(hashCode());" +
                         "v8Args.push(name);" +
                         "v8Args.push(io.js.J2V8Classes.Utils.toV8Object(v8, args));" +
-                        "Object res = v8.executeFunction(" +
-                            "\"executeInstanceMethod\", v8Args" +
-                        ");" +
+                        "Object res = v8.executeFunction(\"executeInstanceMethod\", v8Args);" +
                         "v8Args.release();" +
                         "return res;" +
                     "}",
@@ -80,7 +79,7 @@ public class ClassGenerator {
                     String argsString = "";
                     String jsFuncArgString = "";
                     for (int k = 0; k < superArgs.length; k++) {
-                        argsString += superArgs[k].getSimpleName() + " a" + k;
+                        argsString += superArgs[k].getName() + " a" + k;
                         jsFuncArgString += "a" + k;
                         if (k < superArgs.length - 1) {
                             argsString += ",";
@@ -98,7 +97,7 @@ public class ClassGenerator {
                         meth += "this.runJsFunc(\"" + name + "\", args);" + "}";
                     } else {
                         meth += "return (" + superReturnType + ") this.runJsFunc(\"" + name + "\", args);" + "}";
-                    }
+                    }System.out.println("meth: "+meth);
                     CtMethod proxyMethod = CtNewMethod.make(
                             meth,
                             clz
