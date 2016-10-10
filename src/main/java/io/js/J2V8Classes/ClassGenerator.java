@@ -97,7 +97,7 @@ public class ClassGenerator {
                         meth += "this.runJsFunc(\"" + name + "\", args);" + "}";
                     } else {
                         meth += "return (" + superReturnType + ") this.runJsFunc(\"" + name + "\", args);" + "}";
-                    }System.out.println("meth: "+meth);
+                    }
                     CtMethod proxyMethod = CtNewMethod.make(
                             meth,
                             clz
