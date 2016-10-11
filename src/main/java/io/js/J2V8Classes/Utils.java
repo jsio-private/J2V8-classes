@@ -381,7 +381,7 @@ public class Utils {
     private static HashMap<Integer, V8Object> jsInstanceMap = new HashMap<Integer, V8Object>();
 
     public static V8Object getV8ObjectForObject(V8 runtime, Object o) {
-        int hash = o.hashCode();
+        int hash = System.identityHashCode(o);
         Class clz = o.getClass();
         String clzName = getClassName(clz);
         logger.info("Finding V8Object for: " + clzName + " : "+ hash + "");
@@ -415,7 +415,7 @@ public class Utils {
     }
 
     public static int registerInstance(Object o) {
-        int hash = o.hashCode();
+        int hash = System.identityHashCode(o);
         if (javaInstanceMap.containsKey(hash)) {
             logger.warning("Hash collision: " + hash);
         }

@@ -177,7 +177,7 @@ public class V8JavaClasses {
     private static void generateAllGetSet(V8Object parent, Class clz, Object instance, boolean statics) {
         V8 runtime = parent.getRuntime();
 
-        logger.info("Generating getters and setters for: " + clz.getName() + "(" + instance.hashCode() + ", " + statics + ")");
+        logger.info("Generating getters and setters for: " + clz.getName() + "(" + System.identityHashCode(instance) + ", " + statics + ")");
 
         logger.info("> Getting fields");
         Field[] f = clz.getDeclaredFields();
@@ -266,6 +266,7 @@ public class V8JavaClasses {
 
                     inferredMethod.setAccessible(true);
                     Object v = ((Method) inferredMethod).invoke(fromRecv, Utils.matchExecutableParams(inferredMethod, args));
+                    logger.info("Method returned: " + v);
                     return Utils.toV8Object(runtime, v);
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();

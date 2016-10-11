@@ -45,7 +45,7 @@ public class ClassGenerator {
                     "private Object runJsFunc(String name, Object[] args) { " +
                         "com.eclipsesource.v8.V8 v8 = io.js.J2V8Classes.V8JavaClasses.getRuntime(runtimeName);" +
                         "com.eclipsesource.v8.V8Array v8Args = new com.eclipsesource.v8.V8Array(v8);" +
-                        "v8Args.push(hashCode());" +
+                        "v8Args.push(System.identityHashCode(this));" +
                         "v8Args.push(name);" +
                         "v8Args.push(io.js.J2V8Classes.Utils.toV8Object(v8, args));" +
                         "Object res = v8.executeFunction(\"executeInstanceMethod\", v8Args);" +
